@@ -82,6 +82,9 @@ export class ProviderOfferSender implements OfferSender {
         proposed_time: proposed,
         discount_percent: delivery.offer.discountPercent,
         offer_message: composed.content,
+        appointment_summary: delivery.offer.originalStartAt === undefined
+          ? "No existing appointment is being moved."
+          : `Your current appointment is ${original}.`,
         secret__actor_token: actorToken,
         timezone: state.settings.timezone,
       },

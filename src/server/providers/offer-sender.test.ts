@@ -100,6 +100,7 @@ describe("ProviderOfferSender", () => {
         offer_id: "offer-sarah",
         customer_name: "Sarah",
         offer_message: "Hi Sarah — Jeremy had a 5 PM chair open up. Want it?",
+        appointment_summary: expect.stringContaining("current appointment"),
         secret__actor_token: expect.any(String),
       },
     });

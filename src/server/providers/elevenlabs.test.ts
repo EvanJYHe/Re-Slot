@@ -73,6 +73,14 @@ describe("ElevenLabsWebhookService", () => {
         customer_name: "Sarah",
         timezone,
         secret__actor_token: expect.any(String),
+        offer_id: "",
+        offer_message: "Thanks for calling REVIVE. How can I help with your appointment?",
+        barber_name: "",
+        service_name: "",
+        old_time: "",
+        proposed_time: "",
+        discount_percent: 0,
+        appointment_summary: expect.stringContaining("Signature haircut with Jeremy"),
       },
     });
     const token = context.dynamic_variables.secret__actor_token;
