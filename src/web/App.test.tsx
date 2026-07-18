@@ -98,10 +98,29 @@ function calendar(date = "2026-07-20"): CalendarResponse {
 function api(): ReviveApi & { patchSettings: ReturnType<typeof vi.fn> } {
   return {
     getCalendar: vi.fn(async (date: string) => calendar(date)),
+    getCalendarRange: vi.fn(async (start: string) => calendar(start)),
+    getAvailability: vi.fn(async () => ({
+      date: "2026-07-20",
+      timezone: "America/Toronto",
+      service: { id: "haircut", name: "Signature haircut", durationMinutes: 60 },
+      slots: [],
+    })),
     getSettings: vi.fn(async () => settings),
     patchSettings: vi.fn(async (patch: Partial<SchedulingSettings>) => ({ ...settings, ...patch })),
     createAdminSession: vi.fn(async () => ({ token: "admin-token" })),
     resetDemo: vi.fn(async () => ({ status: "reset", demoDate: "2026-07-20" })),
+    getCustomers: vi.fn(async () => []),
+    getCustomer: vi.fn(async () => { throw new Error("unused"); }),
+    patchCustomer: vi.fn(async () => { throw new Error("unused"); }),
+    addCustomerNote: vi.fn(async () => { throw new Error("unused"); }),
+    getConversations: vi.fn(async () => []),
+    getConversation: vi.fn(async () => { throw new Error("unused"); }),
+    getWaitlist: vi.fn(async () => []),
+    patchWaitlist: vi.fn(async () => { throw new Error("unused"); }),
+    getActivity: vi.fn(async () => []),
+    bookAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "book", message: "Booked" })),
+    rescheduleAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "reschedule", message: "Moved" })),
+    cancelAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "cancel", message: "Cancelled" })),
   };
 }
 
