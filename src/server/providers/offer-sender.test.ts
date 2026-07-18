@@ -98,6 +98,7 @@ describe("ProviderOfferSender", () => {
       toNumber: "+14165550101",
       dynamicVariables: {
         offer_id: "offer-sarah",
+        customer_id: "sarah",
         customer_name: "Sarah",
         offer_message: "Hi Sarah — Jeremy had a 5 PM chair open up. Want it?",
         appointment_summary: expect.stringContaining("current appointment"),
@@ -107,6 +108,14 @@ describe("ProviderOfferSender", () => {
     expect((await store.read()).backboardThreads).toContainEqual(expect.objectContaining({
       customerId: "sarah",
       threadId: "thread-sarah",
+    }));
+    expect((await store.read()).conversationEvents).toContainEqual(expect.objectContaining({
+      kind: "delivery",
+      direction: "outbound",
+      speaker: "agent",
+      text: "Hi Sarah — Jeremy had a 5 PM chair open up. Want it?",
+      offerId: "offer-sarah",
+      deliveryState: "delivered",
     }));
   });
 
@@ -138,5 +147,13 @@ describe("ProviderOfferSender", () => {
 
     expect(result).toEqual({ providerMessageId: "telegram-1" });
     expect(sent).toEqual([{ chatId: "2002", text: "Alex, 6 PM with Jeremy is yours if you want it." }]);
+    expect((await store.read()).conversationEvents).toContainEqual(expect.objectContaining({
+      kind: "message",
+      direction: "outbound",
+      speaker: "agent",
+      text: "Alex, 6 PM with Jeremy is yours if you want it.",
+      offerId: "offer-alex",
+      deliveryState: "delivered",
+    }));
   });
 });

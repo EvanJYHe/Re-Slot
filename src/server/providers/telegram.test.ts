@@ -103,6 +103,16 @@ describe("TelegramWebhookHandler", () => {
       expect.objectContaining({ customerId: "alex", threadId: "thread-alex" }),
     ]));
     expect(transport.sent).toHaveLength(2);
+    const snapshot = await store.read();
+    expect(snapshot.conversations).toHaveLength(2);
+    const joshConversation = snapshot.conversations.find((conversation) => conversation.customerId === "josh")!;
+    expect(snapshot.conversationEvents
+      .filter((event) => event.conversationId === joshConversation.id)
+      .map((event) => ({ text: event.text, direction: event.direction, speaker: event.speaker })))
+      .toEqual([
+        { text: "When is my appointment?", direction: "inbound", speaker: "customer" },
+        { text: "Hello josh", direction: "outbound", speaker: "agent" },
+      ]);
   });
 
   it("adds active-offer context without trusting the customer's message for identity", async () => {
@@ -170,5 +180,39 @@ describe("TelegramWebhookHandler", () => {
     expect(content).toContain("offer-alex");
     expect(content).toContain("Is that still with Jeremy?");
     expect(content).not.toContain("customer_id");
+  });
+
+  it("records a safe provider error instead of a successful-looking reply", async () => {
+    const store = new InMemoryStore(createDemoState({
+      now,
+      timezone,
+      preservedIdentities: { alexTelegramChatId: "2002" },
+    }));
+    const transport = new CapturingTelegramTransport();
+    const backboard = { reply: async () => { throw new Error("provider secret detail"); } } as unknown as BackboardClient;
+    const handler = new TelegramWebhookHandler({
+      store,
+      backboard,
+      toolbox: new SchedulingToolbox(store, new ReviveEngine(store), () => now),
+      transport,
+      linkSecret,
+      clock: () => now,
+    });
+
+    await handler.handle({
+      update_id: 14,
+      message: { message_id: 5, chat: { id: 2002 }, text: "Can you move me?" },
+    });
+
+    const snapshot = await store.read();
+    expect(snapshot.conversationEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "error",
+        speaker: "system",
+        deliveryState: "failed",
+        text: "REVIVE could not reach the scheduling assistant. No appointment was changed.",
+      }),
+    ]));
+    expect(JSON.stringify(snapshot.conversationEvents)).not.toContain("provider secret detail");
   });
 });

@@ -96,6 +96,7 @@ describe("ElevenLabsWebhookService", () => {
     expect(context).toMatchObject({
       type: "conversation_initiation_client_data",
       dynamic_variables: {
+        customer_id: "sarah",
         customer_name: "Sarah",
         timezone,
         secret__actor_token: expect.any(String),
@@ -190,7 +191,99 @@ describe("ElevenLabsWebhookService", () => {
     const snapshot = await store.read();
     expect(snapshot.offers.find((offer) => offer.id === "offer-sarah")?.status).toBe("declined");
     expect(snapshot.refillJobs[0]).toMatchObject({ status: "pending" });
+    expect(snapshot.conversations).toContainEqual(expect.objectContaining({
+      customerId: "sarah",
+      channel: "voice",
+      providerConversationId: "conversation-1",
+      state: "failed",
+    }));
+    expect(snapshot.conversationEvents).toContainEqual(expect.objectContaining({
+      kind: "error",
+      speaker: "system",
+      text: "Outbound call failed: no answer.",
+      deliveryState: "failed",
+      offerId: "offer-sarah",
+    }));
+    expect(JSON.stringify(snapshot.conversationEvents)).not.toContain("CallStatus");
     await expect(service.handlePostCall(event, "t=bad,v0=bad")).rejects.toThrow("Invalid ElevenLabs signature");
+  });
+
+  it("persists documented transcript turns without audio or raw webhook metadata", async () => {
+    const store = new InMemoryStore(createDemoState({
+      now,
+      timezone,
+      preservedIdentities: { sarahPhone: "+14165550101" },
+    }));
+    const engine = new ReviveEngine(store);
+    const service = new ElevenLabsWebhookService({
+      store,
+      engine,
+      toolbox: new SchedulingToolbox(store, engine, () => now),
+      agentId: "agent-1",
+      webhookSecret: secret,
+      clock: () => now,
+    });
+    const event = JSON.stringify({
+      type: "post_call_transcription",
+      event_timestamp: 1_752_000_000,
+      data: {
+        agent_id: "agent-1",
+        conversation_id: "conversation-transcript",
+        status: "done",
+        transcript: [
+          {
+            role: "agent",
+            message: "Hi Sarah, an earlier time opened up.",
+            time_in_call_secs: 0,
+            tool_calls: null,
+          },
+          {
+            role: "user",
+            message: "Yes, please move me to five.",
+            time_in_call_secs: 4,
+            tool_results: null,
+          },
+        ],
+        metadata: { private_provider_field: "must-not-persist" },
+        conversation_initiation_client_data: {
+          dynamic_variables: { customer_id: "sarah", offer_id: "" },
+        },
+        has_audio: false,
+      },
+    });
+
+    const first = await service.handlePostCall(event, signedWebhook(event, secret));
+    const duplicate = await service.handlePostCall(event, signedWebhook(event, secret));
+
+    expect(first).toEqual({ status: "processed" });
+    expect(duplicate).toEqual({ status: "duplicate" });
+    const snapshot = await store.read();
+    expect(snapshot.conversations).toContainEqual(expect.objectContaining({
+      customerId: "sarah",
+      channel: "voice",
+      providerConversationId: "conversation-transcript",
+      state: "completed",
+    }));
+    expect(snapshot.conversationEvents.map((turn) => ({
+      text: turn.text,
+      direction: turn.direction,
+      speaker: turn.speaker,
+      metadata: turn.metadata,
+    }))).toEqual([
+      {
+        text: "Hi Sarah, an earlier time opened up.",
+        direction: "outbound",
+        speaker: "agent",
+        metadata: { timeInCallSeconds: 0 },
+      },
+      {
+        text: "Yes, please move me to five.",
+        direction: "inbound",
+        speaker: "customer",
+        metadata: { timeInCallSeconds: 4 },
+      },
+    ]);
+    expect(JSON.stringify(snapshot.conversationEvents)).not.toContain("must-not-persist");
   });
 });
 

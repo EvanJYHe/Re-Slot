@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { ReviveEngine } from "../../domain/engine.js";
 import type { ReviveStore } from "../../domain/store.js";
 import type { SchedulingToolbox } from "./scheduling-tools.js";
+import { recordConversationEvent } from "../conversations.js";
 
 interface VoiceActorPayload {
   customerId?: string;
@@ -73,8 +74,14 @@ const postCallSchema = z.object({
   data: z.object({
     agent_id: z.string(),
     conversation_id: z.string(),
+    status: z.string().optional(),
     failure_reason: z.string().optional(),
     metadata: z.unknown().optional(),
+    transcript: z.array(z.object({
+      role: z.enum(["agent", "user"]),
+      message: z.string(),
+      time_in_call_secs: z.number().nonnegative().optional(),
+    }).passthrough()).optional(),
     conversation_initiation_client_data: z.object({
       dynamic_variables: z.record(z.string(), z.unknown()).optional(),
     }).passthrough().optional(),
@@ -113,6 +120,7 @@ export class ElevenLabsWebhookService {
       return {
         type: "conversation_initiation_client_data" as const,
         dynamic_variables: {
+          customer_id: "",
           customer_name: "Guest",
           timezone: state.settings.timezone,
           secret__actor_token: token,
@@ -149,6 +157,7 @@ export class ElevenLabsWebhookService {
     return {
       type: "conversation_initiation_client_data" as const,
       dynamic_variables: {
+        customer_id: customer.id,
         customer_name: customer.name,
         timezone: state.settings.timezone,
         secret__actor_token: token,
@@ -212,9 +221,82 @@ export class ElevenLabsWebhookService {
 
     const state = await this.options.store.read();
     const dynamicOfferId = event.data.conversation_initiation_client_data?.dynamic_variables?.offer_id;
+    const dynamicCustomerId = event.data.conversation_initiation_client_data?.dynamic_variables?.customer_id;
     const offer = state.offers.find((candidate) => (
       candidate.id === dynamicOfferId || candidate.providerMessageId === event.data.conversation_id
     ));
+    const customerId = typeof dynamicCustomerId === "string" && dynamicCustomerId !== ""
+      ? dynamicCustomerId
+      : offer?.customerId;
+    const conversationDirection = offer === undefined ? "inbound" as const : "outbound" as const;
+
+    if (customerId !== undefined && event.type === "post_call_transcription") {
+      const turns = event.data.transcript ?? [];
+      for (const [index, turn] of turns.entries()) {
+        const occurredAt = DateTime.fromSeconds(event.event_timestamp)
+          .plus({ milliseconds: index })
+          .toUTC()
+          .toISO()!;
+        await recordConversationEvent(this.options.store, {
+          customerId,
+          channel: "voice",
+          conversationDirection,
+          providerConversationId: event.data.conversation_id,
+          providerEventId: `${eventId}:turn:${index}`,
+          kind: "transcript",
+          direction: turn.role === "agent" ? "outbound" : "inbound",
+          speaker: turn.role === "agent" ? "agent" : "customer",
+          text: turn.message,
+          conversationState: index === turns.length - 1 ? "completed" : "active",
+          ...(turn.time_in_call_secs === undefined ? {} : {
+            metadata: { timeInCallSeconds: turn.time_in_call_secs },
+          }),
+          ...(offer === undefined ? {} : {
+            offerId: offer.id,
+            refillJobId: offer.jobId,
+          }),
+          occurredAt,
+        });
+      }
+      if (turns.length === 0) {
+        await recordConversationEvent(this.options.store, {
+          customerId,
+          channel: "voice",
+          conversationDirection,
+          providerConversationId: event.data.conversation_id,
+          providerEventId: `${eventId}:completed`,
+          kind: "delivery",
+          speaker: "system",
+          text: "Voice call completed.",
+          conversationState: "completed",
+          ...(offer === undefined ? {} : {
+            offerId: offer.id,
+            refillJobId: offer.jobId,
+          }),
+          occurredAt: DateTime.fromSeconds(event.event_timestamp).toUTC().toISO()!,
+        });
+      }
+    }
+    if (customerId !== undefined && event.type === "call_initiation_failure") {
+      const safeReason = (event.data.failure_reason ?? "unknown").replaceAll("-", " ");
+      await recordConversationEvent(this.options.store, {
+        customerId,
+        channel: "voice",
+        conversationDirection,
+        providerConversationId: event.data.conversation_id,
+        providerEventId: `${eventId}:failure`,
+        kind: "error",
+        speaker: "system",
+        text: `Outbound call failed: ${safeReason}.`,
+        deliveryState: "failed",
+        conversationState: "failed",
+        ...(offer === undefined ? {} : {
+          offerId: offer.id,
+          refillJobId: offer.jobId,
+        }),
+        occurredAt: DateTime.fromSeconds(event.event_timestamp).toUTC().toISO()!,
+      });
+    }
     if (offer !== undefined && ["pending", "delivered"].includes(offer.status)) {
       await this.options.engine.respondToOffer({
         actor: { provider: "elevenlabs", customerId: offer.customerId, providerEventId: eventId },

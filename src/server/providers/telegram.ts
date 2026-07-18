@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 
 import type { ReviveStore } from "../../domain/store.js";
+import { recordConversationEvent } from "../conversations.js";
 import type { BackboardClient } from "./backboard.js";
 import type { SchedulingToolbox } from "./scheduling-tools.js";
 
@@ -157,6 +158,23 @@ export class TelegramWebhookHandler {
           `Proposed local time: ${DateTime.fromISO(activeOffer.proposedStartAt).setZone(state.settings.timezone).toFormat("cccc, LLLL d 'at' h:mm a")}`,
         ].join("\n");
 
+    await recordConversationEvent(this.options.store, {
+      customerId: customer.id,
+      channel: "telegram",
+      conversationDirection: "inbound",
+      providerConversationId: chatId,
+      providerEventId: `telegram:update:${update.update_id}`,
+      kind: "message",
+      direction: "inbound",
+      speaker: "customer",
+      text: message.text,
+      ...(activeOffer === undefined ? {} : {
+        offerId: activeOffer.id,
+        refillJobId: activeOffer.jobId,
+      }),
+      occurredAt: this.clock(),
+    });
+
     try {
       const response = await this.options.backboard.reply({
         content,
@@ -182,12 +200,46 @@ export class TelegramWebhookHandler {
           }
         });
       }
-      await this.options.transport.sendMessage(chatId, response.content);
+      const delivered = await this.options.transport.sendMessage(chatId, response.content);
+      await recordConversationEvent(this.options.store, {
+        customerId: customer.id,
+        channel: "telegram",
+        conversationDirection: "inbound",
+        providerConversationId: chatId,
+        providerEventId: `telegram:message:${delivered.providerMessageId}`,
+        kind: "message",
+        direction: "outbound",
+        speaker: "agent",
+        text: response.content,
+        deliveryState: "delivered",
+        ...(activeOffer === undefined ? {} : {
+          offerId: activeOffer.id,
+          refillJobId: activeOffer.jobId,
+        }),
+        occurredAt: this.clock(),
+      });
     } catch {
+      const safeMessage = "REVIVE is having trouble reaching the scheduling assistant right now. Your appointments have not been changed.";
       await this.options.transport.sendMessage(
         chatId,
-        "REVIVE is having trouble reaching the scheduling assistant right now. Your appointments have not been changed.",
+        safeMessage,
       );
+      await recordConversationEvent(this.options.store, {
+        customerId: customer.id,
+        channel: "telegram",
+        conversationDirection: "inbound",
+        providerConversationId: chatId,
+        providerEventId: `telegram:error:${update.update_id}`,
+        kind: "error",
+        speaker: "system",
+        text: "REVIVE could not reach the scheduling assistant. No appointment was changed.",
+        deliveryState: "failed",
+        ...(activeOffer === undefined ? {} : {
+          offerId: activeOffer.id,
+          refillJobId: activeOffer.jobId,
+        }),
+        occurredAt: this.clock(),
+      });
     }
     return { status: "processed" };
   }

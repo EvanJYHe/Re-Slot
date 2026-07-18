@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 
 import type { ReviveStore } from "../../domain/store.js";
 import type { OfferDelivery, OfferSender } from "../../domain/worker.js";
+import { recordConversationEvent } from "../conversations.js";
 import type { BackboardClient } from "./backboard.js";
 import { createVoiceActorToken, type ElevenLabsOutboundClient } from "./elevenlabs.js";
 import type { TelegramTransport } from "./telegram.js";
@@ -60,7 +61,23 @@ export class ProviderOfferSender implements OfferSender {
       if (delivery.customer.telegramChatId === undefined) {
         throw new Error("The Telegram customer has not linked an account.");
       }
-      return this.options.telegram.sendMessage(delivery.customer.telegramChatId, composed.content);
+      const sent = await this.options.telegram.sendMessage(delivery.customer.telegramChatId, composed.content);
+      await recordConversationEvent(this.options.store, {
+        customerId: delivery.customer.id,
+        channel: "telegram",
+        conversationDirection: "outbound",
+        providerConversationId: delivery.customer.telegramChatId,
+        providerEventId: `telegram:message:${sent.providerMessageId}`,
+        kind: "message",
+        direction: "outbound",
+        speaker: "agent",
+        text: composed.content,
+        deliveryState: "delivered",
+        offerId: delivery.offer.id,
+        refillJobId: delivery.offer.jobId,
+        occurredAt: this.clock(),
+      });
+      return sent;
     }
     if (delivery.customer.phone === undefined || this.options.elevenLabs === undefined) {
       throw new Error("The voice provider or customer phone is not configured.");
@@ -75,6 +92,7 @@ export class ProviderOfferSender implements OfferSender {
       toNumber: delivery.customer.phone,
       dynamicVariables: {
         offer_id: delivery.offer.id,
+        customer_id: delivery.customer.id,
         customer_name: delivery.customer.name,
         barber_name: delivery.barber.name,
         service_name: delivery.service.name,
@@ -88,6 +106,21 @@ export class ProviderOfferSender implements OfferSender {
         secret__actor_token: actorToken,
         timezone: state.settings.timezone,
       },
+    });
+    await recordConversationEvent(this.options.store, {
+      customerId: delivery.customer.id,
+      channel: "voice",
+      conversationDirection: "outbound",
+      providerConversationId: call.providerMessageId,
+      providerEventId: `elevenlabs:call:${call.providerMessageId}`,
+      kind: "delivery",
+      direction: "outbound",
+      speaker: "agent",
+      text: composed.content,
+      deliveryState: "delivered",
+      offerId: delivery.offer.id,
+      refillJobId: delivery.offer.jobId,
+      occurredAt: this.clock(),
     });
     return { providerMessageId: call.providerMessageId };
   }
