@@ -44,6 +44,32 @@ describe("voice actor tokens", () => {
 });
 
 describe("ElevenLabsWebhookService", () => {
+  it("authenticates an unlinked caller for read-only tools but blocks customer mutations", async () => {
+    const store = new InMemoryStore(createDemoState({ now, timezone }));
+    const engine = new ReviveEngine(store);
+    const service = new ElevenLabsWebhookService({
+      store,
+      engine,
+      toolbox: new SchedulingToolbox(store, engine, () => now),
+      agentId: "agent-1",
+      webhookSecret: secret,
+      clock: () => now,
+    });
+
+    const context = await service.inboundContext({
+      caller_id: "+1 (416) 555-0199",
+      called_number: "+14165550000",
+      agent_id: "agent-1",
+      call_sid: "guest-call",
+    });
+    const authorization = `Bearer ${context.dynamic_variables.secret__actor_token}`;
+
+    await expect(service.executeTool("get_shop_info", { topic: "hours" }, authorization))
+      .resolves.toMatchObject({ name: "REVIVE", hours: expect.any(String) });
+    await expect(service.executeTool("get_my_appointments", {}, authorization))
+      .resolves.toMatchObject({ type: "error", code: "UNLINKED_ACTOR" });
+  });
+
   it("maps inbound caller context and authenticates tools from the signed header, not model arguments", async () => {
     const store = new InMemoryStore(createDemoState({
       now,

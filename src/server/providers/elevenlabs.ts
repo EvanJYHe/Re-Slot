@@ -8,7 +8,7 @@ import type { ReviveStore } from "../../domain/store.js";
 import type { SchedulingToolbox } from "./scheduling-tools.js";
 
 interface VoiceActorPayload {
-  customerId: string;
+  customerId?: string;
   callId: string;
   offerId?: string;
   expiresAt: string;
@@ -35,7 +35,7 @@ export function verifyVoiceActorToken(token: string, secret: string, now: string
   }
   try {
     const parsed = z.object({
-      customerId: z.string(),
+      customerId: z.string().optional(),
       callId: z.string(),
       offerId: z.string().optional(),
       expiresAt: z.string(),
@@ -44,7 +44,7 @@ export function verifyVoiceActorToken(token: string, secret: string, now: string
       throw new Error("expired");
     }
     return {
-      customerId: parsed.customerId,
+      ...(parsed.customerId === undefined ? {} : { customerId: parsed.customerId }),
       callId: parsed.callId,
       ...(parsed.offerId === undefined ? {} : { offerId: parsed.offerId }),
       expiresAt: parsed.expiresAt,
@@ -106,12 +106,16 @@ export class ElevenLabsWebhookService {
         && normalizePhone(candidate.phone) === normalizePhone(input.caller_id),
     );
     if (customer === undefined) {
+      const token = createVoiceActorToken({
+        callId: input.call_sid,
+        expiresAt: DateTime.fromISO(this.clock()).plus({ hours: 4 }).toUTC().toISO()!,
+      }, this.options.webhookSecret);
       return {
         type: "conversation_initiation_client_data" as const,
         dynamic_variables: {
           customer_name: "Guest",
           timezone: state.settings.timezone,
-          secret__actor_token: "unlinked",
+          secret__actor_token: token,
           offer_id: "",
           offer_message: "Thanks for calling REVIVE. How can I help with your appointment?",
           barber_name: "",
@@ -183,7 +187,7 @@ export class ElevenLabsWebhookService {
     }
     return this.options.toolbox.execute(name, safeInput, {
       provider: "elevenlabs",
-      customerId: actor.customerId,
+      ...(actor.customerId === undefined ? {} : { customerId: actor.customerId }),
       requestId: actor.callId,
     });
   }
