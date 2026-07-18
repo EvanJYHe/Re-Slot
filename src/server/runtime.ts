@@ -1,0 +1,260 @@
+import { access } from "node:fs/promises";
+import { join } from "node:path";
+
+import fastifyStatic from "@fastify/static";
+import type { FastifyInstance } from "fastify";
+import { MongoClient } from "mongodb";
+
+import { ReviveEngine } from "../domain/engine.js";
+import { InMemoryStore, type ReviveStore } from "../domain/store.js";
+import { RefillWorker } from "../domain/worker.js";
+import { buildServer } from "./app.js";
+import type { AppConfig } from "./config.js";
+import { MongoReviveStore } from "./mongo-store.js";
+import { BackboardClient } from "./providers/backboard.js";
+import {
+  ElevenLabsOutboundClient,
+  ElevenLabsWebhookService,
+} from "./providers/elevenlabs.js";
+import { ProviderOfferSender } from "./providers/offer-sender.js";
+import { SchedulingToolbox } from "./providers/scheduling-tools.js";
+import { TelegramApiClient, TelegramWebhookHandler } from "./providers/telegram.js";
+import { createDemoState } from "./seed.js";
+
+interface RuntimeOptions {
+  clock?: () => string;
+  fetchImpl?: typeof fetch;
+  staticRoot?: string;
+  workerIntervalMs?: number;
+}
+
+interface StoreHandle {
+  store: ReviveStore;
+  kind: "memory" | "mongodb";
+  close: () => Promise<void>;
+  fallbackReason?: string;
+}
+
+export interface ReviveRuntime {
+  app: FastifyInstance;
+  store: ReviveStore;
+  engine: ReviveEngine;
+  storeKind: "memory" | "mongodb";
+  workerEnabled: boolean;
+  configureWebhooks(): Promise<{ telegram: "registered" | "skipped" | "failed" }>;
+  startWorker(): void;
+  close(): Promise<void>;
+}
+
+async function openStore(config: AppConfig, clock: () => string): Promise<StoreHandle> {
+  const seed = createDemoState({
+    now: clock(),
+    timezone: config.timezone,
+    ...(config.sarahPhone === undefined ? {} : {
+      preservedIdentities: { sarahPhone: config.sarahPhone },
+    }),
+  });
+  const memory = (fallbackReason?: string): StoreHandle => ({
+    store: new InMemoryStore(seed),
+    kind: "memory",
+    close: async () => undefined,
+    ...(fallbackReason === undefined ? {} : { fallbackReason }),
+  });
+
+  if (config.dataStore === "memory") return memory();
+  if (config.mongoUri === undefined) {
+    if (config.dataStore === "mongodb") {
+      throw new Error("DATA_STORE=mongodb requires MONGODB_URI.");
+    }
+    return memory();
+  }
+
+  const client = new MongoClient(config.mongoUri, {
+    serverSelectionTimeoutMS: 5_000,
+    connectTimeoutMS: 5_000,
+    appName: "revive-scheduling-operator",
+  });
+  try {
+    await client.connect();
+    await client.db(config.mongoDatabase).command({ ping: 1 });
+    const store = new MongoReviveStore(client, config.mongoDatabase);
+    await store.initialize(seed);
+    return { store, kind: "mongodb", close: () => client.close() };
+  } catch (error) {
+    await client.close().catch(() => undefined);
+    if (config.dataStore === "auto" && config.nodeEnv !== "production") {
+      return memory(error instanceof Error ? error.name : "MongoConnectionError");
+    }
+    throw error;
+  }
+}
+
+async function registerStaticShell(app: FastifyInstance, staticRoot: string): Promise<void> {
+  await access(join(staticRoot, "index.html"));
+  await app.register(fastifyStatic, {
+    root: staticRoot,
+    prefix: "/",
+    index: ["index.html"],
+  });
+  app.setNotFoundHandler((request, reply) => {
+    const isServiceRoute = request.url === "/health"
+      || request.url.startsWith("/api/")
+      || request.url.startsWith("/webhooks/");
+    if (request.method === "GET" && !isServiceRoute) return reply.sendFile("index.html");
+    return reply.status(404).send({ error: "not_found" });
+  });
+}
+
+export async function createRuntime(
+  config: AppConfig,
+  options: RuntimeOptions = {},
+): Promise<ReviveRuntime> {
+  const clock = options.clock ?? (() => new Date().toISOString());
+  const storeHandle = await openStore(config, clock);
+  const engine = new ReviveEngine(storeHandle.store);
+  const toolbox = new SchedulingToolbox(storeHandle.store, engine, clock);
+
+  const backboard = config.backboardApiKey === undefined || config.backboardAssistantId === undefined
+    ? undefined
+    : new BackboardClient({
+        apiKey: config.backboardApiKey,
+        assistantId: config.backboardAssistantId,
+        ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
+      });
+  const telegram = config.telegramBotToken === undefined
+    ? undefined
+    : new TelegramApiClient({
+        botToken: config.telegramBotToken,
+        ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
+      });
+  const telegramWebhook = backboard === undefined
+    || telegram === undefined
+    || config.telegramWebhookSecret === undefined
+      ? undefined
+      : new TelegramWebhookHandler({
+          store: storeHandle.store,
+          backboard,
+          toolbox,
+          transport: telegram,
+          linkSecret: config.telegramWebhookSecret,
+          clock,
+        });
+  const elevenLabsWebhooks = config.elevenLabsAgentId === undefined
+    || config.elevenLabsWebhookSecret === undefined
+      ? undefined
+      : new ElevenLabsWebhookService({
+          store: storeHandle.store,
+          engine,
+          toolbox,
+          agentId: config.elevenLabsAgentId,
+          webhookSecret: config.elevenLabsWebhookSecret,
+          clock,
+        });
+  const elevenLabsOutbound = config.elevenLabsApiKey === undefined
+    || config.elevenLabsAgentId === undefined
+    || config.elevenLabsPhoneNumberId === undefined
+      ? undefined
+      : new ElevenLabsOutboundClient({
+          apiKey: config.elevenLabsApiKey,
+          agentId: config.elevenLabsAgentId,
+          phoneNumberId: config.elevenLabsPhoneNumberId,
+          ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
+        });
+  const worker = backboard === undefined || telegram === undefined
+    ? undefined
+    : new RefillWorker(
+        storeHandle.store,
+        new ProviderOfferSender({
+          store: storeHandle.store,
+          backboard,
+          telegram,
+          ...(elevenLabsOutbound === undefined ? {} : { elevenLabs: elevenLabsOutbound }),
+          voiceTokenSecret: config.elevenLabsWebhookSecret ?? config.adminSessionSecret,
+          clock,
+        }),
+        { workerId: `revive-${process.pid}` },
+      );
+
+  const app = await buildServer({
+    config,
+    store: storeHandle.store,
+    engine,
+    storeKind: storeHandle.kind,
+    clock,
+    ...(telegramWebhook === undefined ? {} : { telegramWebhook }),
+    ...(elevenLabsWebhooks === undefined ? {} : { elevenLabsWebhooks }),
+  });
+  if (storeHandle.fallbackReason !== undefined) {
+    app.log.warn(
+      { reason: storeHandle.fallbackReason },
+      "MongoDB was unavailable; using an in-memory development store",
+    );
+  }
+  if (options.staticRoot !== undefined) await registerStaticShell(app, options.staticRoot);
+
+  let workerTimer: NodeJS.Timeout | undefined;
+  let workerRunning = false;
+  let closed = false;
+  const tick = async () => {
+    if (worker === undefined || workerRunning || closed) return;
+    workerRunning = true;
+    try {
+      const result = await worker.runOnce(clock());
+      if (result.status !== "idle") app.log.info({ result }, "refill worker advanced");
+    } catch (error) {
+      app.log.error(
+        { error: error instanceof Error ? error.name : "WorkerError" },
+        "refill worker tick failed",
+      );
+    } finally {
+      workerRunning = false;
+    }
+  };
+  const startWorker = () => {
+    if (worker === undefined || workerTimer !== undefined || closed) return;
+    void tick();
+    workerTimer = setInterval(() => void tick(), options.workerIntervalMs ?? 1_000);
+  };
+  const configureWebhooks = async () => {
+    const publicUrl = new URL(config.publicBaseUrl);
+    if (
+      telegram === undefined
+      || config.telegramWebhookSecret === undefined
+      || config.nodeEnv !== "production"
+      || publicUrl.protocol !== "https:"
+    ) {
+      return { telegram: "skipped" as const };
+    }
+    try {
+      await telegram.setWebhook(
+        new URL("/webhooks/telegram", publicUrl).toString(),
+        config.telegramWebhookSecret,
+      );
+      app.log.info("Telegram webhook registered");
+      return { telegram: "registered" as const };
+    } catch (error) {
+      app.log.error(
+        { error: error instanceof Error ? error.name : "WebhookRegistrationError" },
+        "Telegram webhook registration failed",
+      );
+      return { telegram: "failed" as const };
+    }
+  };
+
+  return {
+    app,
+    store: storeHandle.store,
+    engine,
+    storeKind: storeHandle.kind,
+    workerEnabled: worker !== undefined,
+    configureWebhooks,
+    startWorker,
+    close: async () => {
+      if (closed) return;
+      closed = true;
+      if (workerTimer !== undefined) clearInterval(workerTimer);
+      await app.close();
+      await storeHandle.close();
+    },
+  };
+}

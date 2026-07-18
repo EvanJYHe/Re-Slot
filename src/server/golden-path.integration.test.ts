@@ -1,0 +1,86 @@
+import { DateTime } from "luxon";
+import { describe, expect, it } from "vitest";
+
+import { ReviveEngine } from "../domain/engine.js";
+import { InMemoryStore } from "../domain/store.js";
+import { RefillWorker, type OfferDelivery, type OfferSender } from "../domain/worker.js";
+import { createDemoState } from "./seed.js";
+
+describe("REVIVE golden path", () => {
+  it("moves Sarah into Josh's opening, then fills Sarah's opening with Alex", async () => {
+    const timezone = "America/Toronto";
+    const store = new InMemoryStore(createDemoState({
+      now: "2026-07-18T16:00:00.000Z",
+      timezone,
+      preservedIdentities: {
+        joshTelegramChatId: "1001",
+        alexTelegramChatId: "2002",
+        sarahPhone: "+14165550101",
+      },
+    }));
+    const engine = new ReviveEngine(store);
+    const deliveries: OfferDelivery[] = [];
+    const sender: OfferSender = {
+      send: async (delivery) => {
+        deliveries.push(delivery);
+        return { providerMessageId: `provider-${delivery.offer.id}` };
+      },
+    };
+    let offerSequence = 0;
+    const worker = new RefillWorker(store, sender, {
+      workerId: "golden-path-worker",
+      idFactory: () => `offer-${++offerSequence}`,
+    });
+
+    await engine.cancel({
+      actor: { provider: "telegram", customerId: "josh" },
+      appointmentId: "josh-appt",
+      now: "2026-07-20T16:00:00.000Z",
+    });
+    await worker.runOnce("2026-07-20T16:00:05.000Z");
+    expect(deliveries[0]).toMatchObject({
+      customer: { id: "sarah" },
+      offer: { candidateKind: "move_earlier", channel: "voice" },
+    });
+
+    await engine.respondToOffer({
+      actor: { provider: "elevenlabs", customerId: "sarah" },
+      offerId: deliveries[0]!.offer.id,
+      response: "accept",
+      confirmed: true,
+      now: "2026-07-20T16:01:00.000Z",
+    });
+    await worker.runOnce("2026-07-20T16:01:05.000Z");
+    expect(deliveries[1]).toMatchObject({
+      customer: { id: "alex" },
+      offer: { candidateKind: "waitlist", channel: "telegram" },
+    });
+
+    await engine.respondToOffer({
+      actor: { provider: "telegram", customerId: "alex" },
+      offerId: deliveries[1]!.offer.id,
+      response: "accept",
+      confirmed: true,
+      now: "2026-07-20T16:01:30.000Z",
+    });
+
+    const state = await store.read();
+    const localHour = (iso: string) => DateTime.fromISO(iso).setZone(timezone).hour;
+    expect(state.appointments.find((appointment) => appointment.id === "sarah-appt")).toMatchObject({
+      customerId: "sarah",
+      status: "confirmed",
+    });
+    expect(localHour(state.appointments.find((appointment) => appointment.id === "sarah-appt")!.startAt)).toBe(17);
+    const alex = state.appointments.find(
+      (appointment) => appointment.customerId === "alex" && appointment.status === "confirmed",
+    );
+    expect(alex).toBeDefined();
+    expect(localHour(alex!.startAt)).toBe(18);
+    expect(state.appointments.some(
+      (appointment) => appointment.barberId === "jeremy"
+        && appointment.status === "confirmed"
+        && localHour(appointment.startAt) === 19,
+    )).toBe(false);
+    expect(state.refillJobs.filter((job) => job.status === "completed")).toHaveLength(2);
+  });
+});

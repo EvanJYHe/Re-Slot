@@ -1,0 +1,97 @@
+import { DateTime } from "luxon";
+import { describe, expect, it } from "vitest";
+
+import { ReviveEngine } from "../../domain/engine.js";
+import { InMemoryStore } from "../../domain/store.js";
+import { createDemoState } from "../seed.js";
+import { SchedulingToolbox } from "./scheduling-tools.js";
+
+const now = "2026-07-18T16:00:00.000Z";
+const timezone = "America/Toronto";
+
+describe("SchedulingToolbox", () => {
+  it("never exposes a model-supplied customer identifier in mutation schemas", () => {
+    const store = new InMemoryStore(createDemoState({ now, timezone }));
+    const toolbox = new SchedulingToolbox(store, new ReviveEngine(store), () => now);
+
+    expect(JSON.stringify(toolbox.definitions)).not.toContain("customer_id");
+    expect(toolbox.definitions.map((tool) => tool.function.name)).toEqual(expect.arrayContaining([
+      "get_availability",
+      "get_my_appointments",
+      "book_appointment",
+      "cancel_appointment",
+      "reschedule_appointment",
+      "respond_to_offer",
+      "get_shop_info",
+    ]));
+  });
+
+  it("binds mutations to the authenticated actor even when an appointment id is known", async () => {
+    const store = new InMemoryStore(createDemoState({ now, timezone }));
+    const toolbox = new SchedulingToolbox(store, new ReviveEngine(store), () => now);
+
+    const result = await toolbox.execute(
+      "cancel_appointment",
+      { appointment_id: "josh-appt" },
+      { provider: "telegram", customerId: "alex" },
+    );
+
+    expect(result).toMatchObject({ type: "error", code: "FORBIDDEN" });
+    expect((await store.read()).appointments.find((appointment) => appointment.id === "josh-appt")?.status)
+      .toBe("confirmed");
+  });
+
+  it("uses the actor for reads and enforces confirmation for bookings", async () => {
+    const store = new InMemoryStore(createDemoState({ now, timezone }));
+    const toolbox = new SchedulingToolbox(store, new ReviveEngine(store), () => now);
+    const demoDate = "2026-07-20";
+    const seven = DateTime.fromISO(`${demoDate}T19:00`, { zone: timezone }).toUTC().toISO()!;
+
+    const appointments = await toolbox.execute(
+      "get_my_appointments",
+      {},
+      { provider: "telegram", customerId: "sarah" },
+    );
+    expect(appointments).toMatchObject({
+      appointments: [expect.objectContaining({ id: "sarah-appt", customerName: "Sarah" })],
+    });
+
+    const proposed = await toolbox.execute(
+      "book_appointment",
+      {
+        barber_id: "jeremy",
+        service_id: "haircut",
+        start_at: seven,
+        confirmed: false,
+      },
+      { provider: "telegram", customerId: "alex" },
+    );
+    expect(proposed).toMatchObject({ type: "confirmation_required" });
+  });
+
+  it("returns qualified alternate-barber availability and deterministic shop answers", async () => {
+    const store = new InMemoryStore(createDemoState({ now, timezone }));
+    const toolbox = new SchedulingToolbox(store, new ReviveEngine(store), () => now);
+
+    const availability = await toolbox.execute(
+      "get_availability",
+      {
+        date: "2026-07-20",
+        service_id: "haircut",
+        barber_id: "jeremy",
+        include_alternates: true,
+      },
+      { provider: "telegram", customerId: "alex" },
+    );
+    expect(availability).toMatchObject({
+      slots: expect.arrayContaining([expect.objectContaining({ barberName: "Maya" })]),
+    });
+
+    const shop = await toolbox.execute(
+      "get_shop_info",
+      { topic: "hours" },
+      { provider: "telegram", customerId: "alex" },
+    );
+    expect(shop).toMatchObject({ timezone, hours: "Monday to Friday, 10 AM to 8 PM" });
+  });
+});

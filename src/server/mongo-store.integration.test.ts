@@ -1,0 +1,151 @@
+import { MongoClient } from "mongodb";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import type { ReviveState } from "../domain/store.js";
+import type { Appointment, SchedulingSettings } from "../domain/types.js";
+import { MongoReviveStore } from "./mongo-store.js";
+
+const settings: SchedulingSettings = {
+  timezone: "America/Toronto",
+  refillEnabled: true,
+  moveEarlierEnabled: true,
+  moveLimit: 3,
+  allowAlternateBarbers: true,
+  waitlistEnabled: true,
+  pastCustomerOutreachEnabled: true,
+  maxDiscountPercent: 15,
+  offerExpirySeconds: 120,
+};
+
+function initialState(): ReviveState {
+  return {
+    customers: [{
+      id: "alex",
+      name: "Alex",
+      telegramChatId: "2002",
+      phone: "+14165550101",
+      contactPreference: "telegram",
+      earlierMoveConsent: false,
+      flexibleBarberPreference: false,
+      pastCustomerOptIn: false,
+    }],
+    barbers: [{
+      id: "jeremy",
+      name: "Jeremy",
+      serviceIds: ["haircut"],
+      weeklyHours: { 1: [{ start: "09:00", end: "20:00" }] },
+    }],
+    services: [{ id: "haircut", name: "Signature haircut", durationMinutes: 60, priceCents: 4500 }],
+    appointments: [],
+    waitlist: [],
+    refillJobs: [],
+    offers: [],
+    processedEvents: [],
+    backboardThreads: [],
+    events: [],
+    settings: structuredClone(settings),
+  };
+}
+
+function appointment(id: string): Appointment {
+  return {
+    id,
+    customerId: "alex",
+    barberId: "jeremy",
+    serviceId: "haircut",
+    startAt: "2026-07-20T21:00:00.000Z",
+    endAt: "2026-07-20T22:00:00.000Z",
+    status: "confirmed",
+    discountPercent: 0,
+    version: 1,
+    history: [],
+  };
+}
+
+describe("MongoReviveStore", () => {
+  let replicaSet: MongoMemoryReplSet;
+  let client: MongoClient;
+  let store: MongoReviveStore;
+  const databaseName = "revive_integration";
+
+  beforeAll(async () => {
+    replicaSet = await MongoMemoryReplSet.create({
+      replSet: { count: 1, storageEngine: "wiredTiger" },
+    });
+    client = new MongoClient(replicaSet.getUri());
+    await client.connect();
+    store = new MongoReviveStore(client, databaseName);
+    await store.initialize(initialState());
+  }, 120_000);
+
+  afterAll(async () => {
+    await client?.close();
+    await replicaSet?.stop();
+  });
+
+  it("creates the scheduling, identity, offer, and idempotency indexes", async () => {
+    const database = client.db(databaseName);
+    const appointmentIndexes = await database.collection("appointments").indexes();
+    const customerIndexes = await database.collection("customers").indexes();
+    const offerIndexes = await database.collection("outreach_offers").indexes();
+    const eventIndexes = await database.collection("processed_provider_events").indexes();
+
+    expect(appointmentIndexes.map((index) => index.name)).toContain("one_confirmed_barber_start");
+    expect(customerIndexes.map((index) => index.name)).toEqual(expect.arrayContaining([
+      "unique_telegram_chat",
+      "unique_normalized_phone",
+    ]));
+    expect(offerIndexes.map((index) => index.name)).toContain("one_pending_offer_per_job");
+    expect(eventIndexes.map((index) => index.name)).toContain("provider_event_idempotency");
+  });
+
+  it("persists state changes inside a Mongo transaction", async () => {
+    await store.transaction((state) => {
+      state.appointments.push(appointment("first"));
+      state.events.push({
+        id: "event-1",
+        type: "appointment.booked",
+        aggregateId: "first",
+        occurredAt: "2026-07-20T15:00:00.000Z",
+      });
+    });
+
+    const snapshot = await store.read();
+    expect(snapshot.appointments).toContainEqual(expect.objectContaining({ id: "first" }));
+    expect(snapshot.events).toContainEqual(expect.objectContaining({ id: "event-1" }));
+  });
+
+  it("notifies live subscribers after void state transactions", async () => {
+    await store.replace(initialState());
+    let observedEventId: string | undefined;
+    const unsubscribe = store.subscribe((state) => {
+      observedEventId = state.events.at(-1)?.id;
+    });
+
+    await store.transaction((state) => {
+      state.events.push({
+        id: "event-for-sse",
+        type: "appointment.updated",
+        aggregateId: "first",
+        occurredAt: "2026-07-20T15:00:00.000Z",
+      });
+    });
+    unsubscribe();
+
+    expect(observedEventId).toBe("event-for-sse");
+  });
+
+  it("allows only one concurrent transaction to claim a confirmed barber/start slot", async () => {
+    await store.replace(initialState());
+
+    const outcomes = await Promise.allSettled([
+      store.transaction((state) => state.appointments.push(appointment("contender-a"))),
+      store.transaction((state) => state.appointments.push(appointment("contender-b"))),
+    ]);
+
+    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome.status === "rejected")).toHaveLength(1);
+    expect((await store.read()).appointments).toHaveLength(1);
+  });
+});

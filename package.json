@@ -1,0 +1,55 @@
+{
+  "name": "revive-scheduling-operator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c yellow,cyan \"tsx watch src/server/index.ts\" \"vite\"",
+    "build": "vite build && tsup src/server/index.ts --format esm --out-dir dist/server --sourcemap --clean",
+    "start": "node dist/server/index.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run test:run && npm run build",
+    "setup:backboard": "node --env-file=.env scripts/configure-backboard.mjs",
+    "setup:telegram": "node --env-file=.env scripts/register-telegram-webhook.mjs",
+    "demo:links": "node --env-file=.env scripts/telegram-demo-links.mjs"
+  },
+  "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.58.0",
+    "@fastify/cors": "latest",
+    "@fastify/static": "latest",
+    "fastify": "latest",
+    "fastify-raw-body": "^5.0.0",
+    "luxon": "latest",
+    "mongodb": "latest",
+    "pino": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/luxon": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "autoprefixer": "latest",
+    "concurrently": "latest",
+    "jsdom": "latest",
+    "mongodb-memory-server": "^11.2.0",
+    "postcss": "latest",
+    "tailwindcss": "3.4.17",
+    "tsup": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  }
+}
