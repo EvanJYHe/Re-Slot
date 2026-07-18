@@ -16,6 +16,10 @@ export type OfferStatus =
   | "delivery_failed";
 export type CandidateKind = "move_earlier" | "waitlist" | "past_customer";
 export type ProviderName = "telegram" | "elevenlabs" | "backboard" | "worker" | "admin";
+export type ConversationChannel = "telegram" | "voice";
+export type ConversationDirection = "inbound" | "outbound";
+export type ConversationState = "active" | "completed" | "failed";
+export type ConversationEventKind = "message" | "transcript" | "action" | "delivery" | "error";
 
 export interface TimeRange {
   start: string;
@@ -84,9 +88,48 @@ export interface WaitlistEntry {
   date: string;
   earliestStart: string;
   latestStart: string;
-  status: "active" | "offered" | "fulfilled" | "withdrawn";
+  status: "active" | "paused" | "offered" | "fulfilled" | "withdrawn";
+  operatorNote?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface Conversation {
+  id: string;
+  customerId: string;
+  channel: ConversationChannel;
+  direction: ConversationDirection;
+  providerConversationId: string;
+  state: ConversationState;
+  preview: string;
+  offerId?: string;
+  appointmentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationEvent {
+  id: string;
+  conversationId: string;
+  kind: ConversationEventKind;
+  direction?: ConversationDirection;
+  speaker: "customer" | "agent" | "system";
+  text: string;
+  deliveryState?: "pending" | "delivered" | "failed";
+  providerEventId?: string;
+  appointmentId?: string;
+  refillJobId?: string;
+  offerId?: string;
+  occurredAt: string;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface CustomerNote {
+  id: string;
+  customerId: string;
+  text: string;
+  author: "operator";
+  createdAt: string;
 }
 
 export interface TimelineEvent {

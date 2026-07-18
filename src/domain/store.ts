@@ -3,7 +3,10 @@ import type {
   BackboardThreadMapping,
   Barber,
   CalendarEvent,
+  Conversation,
+  ConversationEvent,
   Customer,
+  CustomerNote,
   OutreachOffer,
   ProcessedProviderEvent,
   RefillJob,
@@ -22,6 +25,9 @@ export interface ReviveState {
   offers: OutreachOffer[];
   processedEvents: ProcessedProviderEvent[];
   backboardThreads: BackboardThreadMapping[];
+  conversations: Conversation[];
+  conversationEvents: ConversationEvent[];
+  customerNotes: CustomerNote[];
   events: CalendarEvent[];
   settings: SchedulingSettings;
 }

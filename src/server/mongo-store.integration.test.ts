@@ -43,6 +43,9 @@ function initialState(): ReviveState {
     offers: [],
     processedEvents: [],
     backboardThreads: [],
+    conversations: [],
+    conversationEvents: [],
+    customerNotes: [],
     events: [],
     settings: structuredClone(settings),
   };
@@ -90,6 +93,8 @@ describe("MongoReviveStore", () => {
     const customerIndexes = await database.collection("customers").indexes();
     const offerIndexes = await database.collection("outreach_offers").indexes();
     const eventIndexes = await database.collection("processed_provider_events").indexes();
+    const conversationIndexes = await database.collection("conversations").indexes();
+    const conversationEventIndexes = await database.collection("conversation_events").indexes();
 
     expect(appointmentIndexes.map((index) => index.name)).toContain("one_confirmed_barber_start");
     expect(customerIndexes.map((index) => index.name)).toEqual(expect.arrayContaining([
@@ -98,6 +103,14 @@ describe("MongoReviveStore", () => {
     ]));
     expect(offerIndexes.map((index) => index.name)).toContain("one_pending_offer_per_job");
     expect(eventIndexes.map((index) => index.name)).toContain("provider_event_idempotency");
+    expect(conversationIndexes.map((index) => index.name)).toEqual(expect.arrayContaining([
+      "provider_conversation_identity",
+      "customer_conversations",
+    ]));
+    expect(conversationEventIndexes.map((index) => index.name)).toEqual(expect.arrayContaining([
+      "conversation_event_identity",
+      "conversation_event_timeline",
+    ]));
   });
 
   it("persists state changes inside a Mongo transaction", async () => {
@@ -114,6 +127,44 @@ describe("MongoReviveStore", () => {
     const snapshot = await store.read();
     expect(snapshot.appointments).toContainEqual(expect.objectContaining({ id: "first" }));
     expect(snapshot.events).toContainEqual(expect.objectContaining({ id: "event-1" }));
+  });
+
+  it("round-trips normalized conversations and customer notes", async () => {
+    await store.transaction((state) => {
+      state.conversations.push({
+        id: "conversation-1",
+        customerId: "alex",
+        channel: "telegram",
+        direction: "inbound",
+        providerConversationId: "chat-2002",
+        state: "active",
+        preview: "Hello",
+        createdAt: "2026-07-20T15:00:00.000Z",
+        updatedAt: "2026-07-20T15:00:00.000Z",
+      });
+      state.conversationEvents.push({
+        id: "conversation-event-1",
+        conversationId: "conversation-1",
+        kind: "message",
+        direction: "inbound",
+        speaker: "customer",
+        text: "Hello",
+        providerEventId: "update-1",
+        occurredAt: "2026-07-20T15:00:00.000Z",
+      });
+      state.customerNotes.push({
+        id: "note-1",
+        customerId: "alex",
+        text: "Prefers the chair near the window.",
+        author: "operator",
+        createdAt: "2026-07-20T15:00:00.000Z",
+      });
+    });
+
+    const snapshot = await store.read();
+    expect(snapshot.conversations).toContainEqual(expect.objectContaining({ id: "conversation-1" }));
+    expect(snapshot.conversationEvents).toContainEqual(expect.objectContaining({ id: "conversation-event-1" }));
+    expect(snapshot.customerNotes).toContainEqual(expect.objectContaining({ id: "note-1" }));
   });
 
   it("notifies live subscribers after void state transactions", async () => {

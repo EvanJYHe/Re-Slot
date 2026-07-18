@@ -118,6 +118,9 @@ function state(): ReviveState {
     offers: [],
     processedEvents: [],
     backboardThreads: [],
+    conversations: [],
+    conversationEvents: [],
+    customerNotes: [],
     events: [],
     settings: structuredClone(settings),
   };

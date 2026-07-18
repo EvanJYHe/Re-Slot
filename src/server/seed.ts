@@ -242,6 +242,9 @@ export function createDemoState(options: CreateDemoStateOptions): ReviveState {
     offers: [],
     processedEvents: [],
     backboardThreads: [],
+    conversations: [],
+    conversationEvents: [],
+    customerNotes: [],
     events: [{
       id: "demo-reset-event",
       type: "demo.reset",

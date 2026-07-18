@@ -7,7 +7,10 @@ import type {
   BackboardThreadMapping,
   Barber,
   CalendarEvent,
+  Conversation,
+  ConversationEvent,
   Customer,
+  CustomerNote,
   OutreachOffer,
   ProcessedProviderEvent,
   RefillJob,
@@ -28,6 +31,9 @@ const collectionNames = {
   offers: "outreach_offers",
   processedEvents: "processed_provider_events",
   backboardThreads: "backboard_thread_mappings",
+  conversations: "conversations",
+  conversationEvents: "conversation_events",
+  customerNotes: "customer_notes",
   events: "calendar_events",
   settings: "shop_settings",
 } as const;
@@ -89,6 +95,9 @@ export class MongoReviveStore implements ReviveStore {
     const backboardThreads = this.collection(collectionNames.backboardThreads);
     const refillJobs = this.collection(collectionNames.refillJobs);
     const waitlist = this.collection(collectionNames.waitlist);
+    const conversations = this.collection(collectionNames.conversations);
+    const conversationEvents = this.collection(collectionNames.conversationEvents);
+    const customerNotes = this.collection(collectionNames.customerNotes);
 
     await Promise.all([
       customers.createIndex(
@@ -154,6 +163,30 @@ export class MongoReviveStore implements ReviveStore {
       waitlist.createIndex(
         { status: 1, serviceId: 1, barberId: 1, date: 1 },
         { name: "waitlist_candidate_lookup" },
+      ),
+      conversations.createIndex(
+        { channel: 1, providerConversationId: 1 },
+        { name: "provider_conversation_identity", unique: true },
+      ),
+      conversations.createIndex(
+        { customerId: 1, updatedAt: -1 },
+        { name: "customer_conversations" },
+      ),
+      conversationEvents.createIndex(
+        { conversationId: 1, providerEventId: 1 },
+        {
+          name: "conversation_event_identity",
+          unique: true,
+          partialFilterExpression: { providerEventId: { $type: "string" } },
+        },
+      ),
+      conversationEvents.createIndex(
+        { conversationId: 1, occurredAt: 1 },
+        { name: "conversation_event_timeline" },
+      ),
+      customerNotes.createIndex(
+        { customerId: 1, createdAt: -1 },
+        { name: "customer_notes" },
       ),
     ]);
   }
@@ -221,6 +254,15 @@ export class MongoReviveStore implements ReviveStore {
     const offers = await this.collection(collectionNames.offers).find({}, findOptions).toArray();
     const processedEvents = await this.collection(collectionNames.processedEvents).find({}, findOptions).toArray();
     const backboardThreads = await this.collection(collectionNames.backboardThreads).find({}, findOptions).toArray();
+    const conversations = await this.collection(collectionNames.conversations).find({}, findOptions).toArray();
+    const conversationEvents = await this.collection(collectionNames.conversationEvents)
+      .find({}, findOptions)
+      .sort({ occurredAt: 1 })
+      .toArray();
+    const customerNotes = await this.collection(collectionNames.customerNotes)
+      .find({}, findOptions)
+      .sort({ createdAt: 1 })
+      .toArray();
     const events = await this.collection(collectionNames.events)
       .find({}, findOptions)
       .sort({ occurredAt: 1 })
@@ -241,6 +283,9 @@ export class MongoReviveStore implements ReviveStore {
       offers: offers.map(fromDocument<OutreachOffer>),
       processedEvents: processedEvents.map(fromDocument<ProcessedProviderEvent>),
       backboardThreads: backboardThreads.map(fromDocument<BackboardThreadMapping>),
+      conversations: conversations.map(fromDocument<Conversation>),
+      conversationEvents: conversationEvents.map(fromDocument<ConversationEvent>),
+      customerNotes: customerNotes.map(fromDocument<CustomerNote>),
       events: events.map(fromDocument<CalendarEvent>),
       settings: settings as unknown as SchedulingSettings,
     };
@@ -267,6 +312,21 @@ export class MongoReviveStore implements ReviveStore {
     await replaceCollection(
       this.collection(collectionNames.backboardThreads),
       state.backboardThreads,
+      session,
+    );
+    await replaceCollection(
+      this.collection(collectionNames.conversations),
+      state.conversations,
+      session,
+    );
+    await replaceCollection(
+      this.collection(collectionNames.conversationEvents),
+      state.conversationEvents,
+      session,
+    );
+    await replaceCollection(
+      this.collection(collectionNames.customerNotes),
+      state.customerNotes,
       session,
     );
     await replaceCollection(this.collection(collectionNames.events), state.events, session);
