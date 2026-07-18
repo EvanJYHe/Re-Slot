@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateTime } from "luxon";
 
 import { defaultApi } from "./api.js";
@@ -9,7 +9,9 @@ import {
   LockIcon,
   SettingsIcon,
 } from "./components/icons.js";
-import { Button, StatusDot, cn } from "./components/ui.js";
+import { Button, Modal, StatusDot, cn } from "./components/ui.js";
+import { periodRange, type CalendarView } from "./lib/dates.js";
+import { CalendarPage } from "./pages/CalendarPage.js";
 import type { CalendarResponse, EventSourceLike, ReviveApi } from "./types.js";
 
 export type AppPage = "calendar" | "agent" | "customers" | "settings";
@@ -42,9 +44,11 @@ function storedOperatorToken(): string | undefined {
   return window.sessionStorage.getItem(tokenStorageKey) ?? undefined;
 }
 
-function OperatorGate({ api, onUnlocked }: {
+function OperatorGate({ api, onUnlocked, overlay = false, onClose }: {
   api: ReviveApi;
   onUnlocked: (token: string) => void;
+  overlay?: boolean;
+  onClose?: () => void;
 }) {
   const [pin, setPin] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
@@ -60,11 +64,15 @@ function OperatorGate({ api, onUnlocked }: {
     }
   };
 
-  return (
-    <section className="mx-auto mt-20 w-full max-w-sm rounded-xl border border-line bg-panel p-7 shadow-panel">
-      <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-full bg-[#edf4ef] text-revive"><LockIcon /></div>
-      <h2 className="text-lg font-semibold tracking-[-0.01em]">Unlock operator workspace</h2>
-      <p className="mt-2 text-sm leading-6 text-muted">Use the demo admin PIN once to access customer records and live agent activity.</p>
+  const form = (
+    <>
+      {overlay ? null : (
+        <>
+          <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-full bg-[#edf4ef] text-revive"><LockIcon /></div>
+          <h2 className="text-lg font-semibold tracking-[-0.01em]">Unlock operator workspace</h2>
+        </>
+      )}
+      <p className={cn("text-sm leading-6 text-muted", overlay ? "" : "mt-2")}>Use the demo admin PIN once to access customer records and live agent activity.</p>
       <label className="mt-6 block text-sm font-medium" htmlFor="operator-pin">Admin PIN</label>
       <input
         autoComplete="one-time-code"
@@ -79,41 +87,16 @@ function OperatorGate({ api, onUnlocked }: {
       <Button className="mt-5 w-full" disabled={pin === "" || status === "submitting"} onClick={() => void unlock()} variant="primary">
         {status === "submitting" ? "Unlocking…" : "Unlock"}
       </Button>
-    </section>
+    </>
   );
-}
 
-function CalendarPreview({ value, loading }: { value: CalendarResponse | undefined; loading: boolean }) {
+  if (overlay) {
+    return <Modal onClose={onClose ?? (() => undefined)} title="Unlock operator workspace">{form}</Modal>;
+  }
+
   return (
-    <section>
-      <div className="flex items-end justify-between border-b border-line px-6 py-5 lg:px-8">
-        <div>
-          <h2 className="text-xl font-semibold tracking-[-0.02em]">Calendar</h2>
-          <p className="mt-1 text-sm text-muted">{value === undefined
-            ? "Loading the shop schedule…"
-            : DateTime.fromISO(value.date).toFormat("cccc, LLLL d")}</p>
-        </div>
-        {loading ? <span className="font-mono text-[11px] text-muted">Refreshing</span> : null}
-      </div>
-      <div className="p-6 lg:p-8">
-        <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-panel">
-          <div className="grid grid-cols-[120px_1fr_1fr_1fr] border-b border-line bg-[#fafbf9] px-4 py-3 text-xs font-medium text-muted">
-            <span>Time</span>
-            {(value?.barbers ?? []).map((barber) => <span key={barber.id}>{barber.name}</span>)}
-          </div>
-          <div className="min-h-72 divide-y divide-line">
-            {(value?.appointments ?? []).filter((appointment) => appointment.status === "confirmed").map((appointment) => (
-              <div className="grid grid-cols-[120px_1fr] items-center px-4 py-4" key={appointment.id}>
-                <time className="font-mono text-xs text-muted">{DateTime.fromISO(appointment.startAt).setZone(value!.timezone).toFormat("h:mm a")}</time>
-                <div>
-                  <strong className="text-sm font-semibold">{appointment.customerName}</strong>
-                  <span className="ml-2 text-sm text-muted">{appointment.serviceName} · {appointment.barberName}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+    <section className="mx-auto mt-20 w-full max-w-sm rounded-xl border border-line bg-panel p-7 shadow-panel">
+      {form}
     </section>
   );
 }
@@ -142,23 +125,37 @@ export function DashboardApp({
   eventSourceFactory = defaultEventSourceFactory,
 }: DashboardAppProps) {
   const [page, setPage] = useState<AppPage>("calendar");
+  const [anchorDate, setAnchorDate] = useState(initialDate);
+  const [calendarView, setCalendarView] = useState<CalendarView>("day");
+  const [barberFilter, setBarberFilter] = useState("all");
   const [calendar, setCalendar] = useState<CalendarResponse>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [connection, setConnection] = useState<"connecting" | "connected" | "reconnecting" | "unavailable">("connecting");
   const [operatorToken, setOperatorToken] = useState<string | undefined>(initialOperatorToken ?? storedOperatorToken);
+  const [calendarUnlockRequested, setCalendarUnlockRequested] = useState(false);
+  const requestSequence = useRef(0);
+  const range = useMemo(() => periodRange(anchorDate, calendarView), [anchorDate, calendarView]);
 
   const refreshCalendar = useCallback(async () => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     try {
-      setCalendar(await api.getCalendar(initialDate));
-      setError(undefined);
+      const nextCalendar = await api.getCalendarRange(range.start, range.end);
+      if (requestId === requestSequence.current) {
+        setCalendar(nextCalendar);
+        setError(undefined);
+      }
     } catch {
-      setError("The calendar could not refresh. The last confirmed state remains visible.");
+      if (requestId === requestSequence.current) {
+        setError("The calendar could not refresh. The last confirmed state remains visible.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
-  }, [api, initialDate]);
+  }, [api, range.end, range.start]);
+  const refreshCalendarRef = useRef(refreshCalendar);
+  refreshCalendarRef.current = refreshCalendar;
 
   useEffect(() => { void refreshCalendar(); }, [refreshCalendar]);
   useEffect(() => {
@@ -169,9 +166,9 @@ export function DashboardApp({
     }
     source.addEventListener("open", () => setConnection("connected"));
     source.addEventListener("error", () => setConnection("reconnecting"));
-    source.addEventListener("domain", () => { void refreshCalendar(); });
+    source.addEventListener("domain", () => { void refreshCalendarRef.current(); });
     return () => source.close();
-  }, [eventSourceFactory, refreshCalendar]);
+  }, [eventSourceFactory]);
 
   const connectionLabel = connection === "connected"
     ? "Live updates connected"
@@ -198,7 +195,10 @@ export function DashboardApp({
                   page === destination.id ? "bg-[#edf1ed] text-ink" : "text-muted hover:bg-[#f2f4f1] hover:text-ink",
                 )}
                 key={destination.id}
-                onClick={() => setPage(destination.id)}
+                onClick={() => {
+                  setCalendarUnlockRequested(false);
+                  setPage(destination.id);
+                }}
                 type="button"
               >
                 <Icon className="h-4 w-4" />
@@ -216,11 +216,37 @@ export function DashboardApp({
         <div className="border-b border-[#ead9b9] bg-amber-soft px-6 py-2.5 text-center text-sm text-[#7c5b22]">{error}</div>
       )}
       <main>
-        {page === "calendar" ? <CalendarPreview loading={loading} value={calendar} /> : null}
+        {page === "calendar" ? (
+          <CalendarPage
+            anchorDate={anchorDate}
+            api={api}
+            barberFilter={barberFilter}
+            calendar={calendar}
+            loading={loading}
+            onAnchorDateChange={setAnchorDate}
+            onBarberFilterChange={setBarberFilter}
+            onMutated={refreshCalendar}
+            onRequireOperator={() => setCalendarUnlockRequested(true)}
+            onViewChange={setCalendarView}
+            operatorToken={operatorToken}
+            view={calendarView}
+          />
+        ) : null}
         {page !== "calendar" && operatorToken === undefined
           ? <OperatorGate api={api} onUnlocked={setOperatorToken} />
           : null}
         {page !== "calendar" && operatorToken !== undefined ? <ProtectedPlaceholder page={page} /> : null}
+        {page === "calendar" && operatorToken === undefined && calendarUnlockRequested ? (
+          <OperatorGate
+            api={api}
+            onClose={() => setCalendarUnlockRequested(false)}
+            onUnlocked={(token) => {
+              setOperatorToken(token);
+              setCalendarUnlockRequested(false);
+            }}
+            overlay
+          />
+        ) : null}
       </main>
     </div>
   );

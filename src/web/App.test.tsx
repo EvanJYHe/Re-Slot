@@ -62,7 +62,10 @@ function calendar(date = "2026-07-20"): CalendarResponse {
 function api(): ReviveApi {
   return {
     getCalendar: vi.fn(async (date: string) => calendar(date)),
-    getCalendarRange: vi.fn(async (start: string) => calendar(start)),
+    getCalendarRange: vi.fn(async (start: string, end: string) => ({
+      ...calendar(start),
+      range: { start, end },
+    })),
     getAvailability: vi.fn(async () => ({
       date: "2026-07-20",
       timezone: "America/Toronto",
@@ -95,7 +98,8 @@ afterEach(() => {
 
 describe("DashboardApp shell", () => {
   it("opens on a quiet Calendar workspace with four persistent destinations", async () => {
-    render(<DashboardApp api={api()} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
+    const client = api();
+    render(<DashboardApp api={client} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
 
     expect(await screen.findByRole("heading", { name: "REVIVE" })).toBeInTheDocument();
     for (const destination of ["Calendar", "Agent", "Customers", "Settings"]) {
@@ -107,6 +111,30 @@ describe("DashboardApp shell", () => {
     expect(screen.getByText("Live updates unavailable")).toBeInTheDocument();
     expect(screen.queryByText(/living chair board/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/disciplines/i)).not.toBeInTheDocument();
+    expect(client.getCalendarRange).toHaveBeenCalledWith("2026-07-20", "2026-07-20");
+  });
+
+  it("queries the authoritative range for each calendar view", async () => {
+    const user = userEvent.setup();
+    const client = api();
+    render(<DashboardApp api={client} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
+
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-07-20", "2026-07-20"));
+    await user.click(screen.getByRole("button", { name: "Week" }));
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-07-20", "2026-07-24"));
+    await user.click(screen.getByRole("button", { name: "Month" }));
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-06-29", "2026-08-09"));
+  });
+
+  it("keeps Calendar visible while requesting operator access for scheduling", async () => {
+    const user = userEvent.setup();
+    render(<DashboardApp api={api()} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
+
+    await screen.findByRole("heading", { name: "Calendar" });
+    await user.click(screen.getByRole("button", { name: "New appointment" }));
+
+    expect(screen.getByRole("heading", { name: "Unlock operator workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Calendar" })).toBeInTheDocument();
   });
 
   it("unlocks protected workspaces with one short-lived operator session", async () => {
@@ -137,10 +165,10 @@ describe("DashboardApp shell", () => {
     const client = api();
     render(<DashboardApp api={client} initialDate="2026-07-20" eventSourceFactory={() => source} />);
 
-    await waitFor(() => expect(client.getCalendar).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenCalledTimes(1));
     listeners.get("open")?.();
     expect(await screen.findByText("Live updates connected")).toBeInTheDocument();
     listeners.get("domain")?.();
-    await waitFor(() => expect(client.getCalendar).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenCalledTimes(2));
   });
 });
