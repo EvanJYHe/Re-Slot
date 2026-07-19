@@ -66,6 +66,22 @@ function api(): ReviveApi {
       ...calendar(start),
       range: { start, end },
     })),
+    getDashboard: vi.fn(async (start: string, end: string) => ({
+      range: { start, end },
+      timezone: "America/Toronto",
+      metrics: {
+        recoveredRevenueCents: 0,
+        confirmedRevenueCents: 4500,
+        chairsRecovered: 0,
+        refillSuccessRate: 0,
+        averageRefillMinutes: 0,
+        chairUtilizationRate: 10,
+        activeWaitlist: 1,
+        activeRecoveries: 0,
+      },
+      daily: [{ date: start, confirmedRevenueCents: 4500, recoveredRevenueCents: 0 }],
+      recentOutcomes: [],
+    })),
     getAvailability: vi.fn(async () => ({
       date: "2026-07-20",
       timezone: "America/Toronto",
@@ -100,16 +116,26 @@ describe("DashboardApp shell", () => {
     render(<DashboardApp api={client} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
 
     expect(await screen.findByRole("heading", { name: "REVIVE" })).toBeInTheDocument();
-    for (const destination of ["Calendar", "Agent", "Customers", "Settings"]) {
+    for (const destination of ["Dashboard", "Calendar", "Agent", "Customers", "Settings"]) {
       expect(screen.getByRole("button", { name: destination })).toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Calendar" })).toBeInTheDocument();
-    expect(screen.getByText("Sarah")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sarah, Signature haircut/ })).toBeInTheDocument();
     expect(screen.getByText("Live updates unavailable")).toBeInTheDocument();
     expect(screen.queryByText(/living chair board/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/disciplines/i)).not.toBeInTheDocument();
     expect(client.getCalendarRange).toHaveBeenCalledWith("2026-07-20", "2026-07-20");
+  });
+
+  it("opens the source-backed impact dashboard", async () => {
+    const user = userEvent.setup();
+    render(<DashboardApp api={api()} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
+
+    await user.click(screen.getByRole("button", { name: "Dashboard" }));
+
+    expect(await screen.findByRole("heading", { name: "Impact" })).toBeInTheDocument();
+    expect(screen.getByText("$45.00")).toBeInTheDocument();
   });
 
   it("queries the authoritative range for each calendar view", async () => {
@@ -119,9 +145,9 @@ describe("DashboardApp shell", () => {
 
     await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-07-20", "2026-07-20"));
     await user.click(screen.getByRole("button", { name: "Week" }));
-    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-07-20", "2026-07-24"));
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-07-19", "2026-07-25"));
     await user.click(screen.getByRole("button", { name: "Month" }));
-    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-06-29", "2026-08-09"));
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-06-28", "2026-08-08"));
   });
 
   it("opens scheduling directly from the local Calendar workspace", async () => {

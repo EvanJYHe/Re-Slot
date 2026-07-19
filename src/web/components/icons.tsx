@@ -25,6 +25,14 @@ export function CalendarIcon(props: IconProps) {
   );
 }
 
+export function DashboardIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 4h6v7H4V4Zm10 0h6v4h-6V4ZM4 15h6v5H4v-5Zm10-3h6v8h-6v-8Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.7" />
+    </IconBase>
+  );
+}
+
 export function AgentIcon(props: IconProps) {
   return (
     <IconBase {...props}>

@@ -6,6 +6,7 @@ import {
   AgentIcon,
   CalendarIcon,
   CustomersIcon,
+  DashboardIcon,
   SettingsIcon,
 } from "./components/icons.js";
 import { StatusDot, cn } from "./components/ui.js";
@@ -13,10 +14,11 @@ import { periodRange, type CalendarView } from "./lib/dates.js";
 import { AgentPage } from "./pages/AgentPage.js";
 import { CalendarPage } from "./pages/CalendarPage.js";
 import { CustomersPage } from "./pages/CustomersPage.js";
+import { DashboardPage } from "./pages/DashboardPage.js";
 import { SettingsPage } from "./pages/SettingsPage.js";
 import type { CalendarResponse, EventSourceLike, ReviveApi } from "./types.js";
 
-export type AppPage = "calendar" | "agent" | "customers" | "settings";
+export type AppPage = "dashboard" | "calendar" | "agent" | "customers" | "settings";
 
 interface DashboardAppProps {
   api?: ReviveApi;
@@ -27,6 +29,7 @@ interface DashboardAppProps {
 const defaultEventSourceFactory = (url: string): EventSourceLike => new EventSource(url);
 
 const destinations = [
+  { id: "dashboard" as const, label: "Dashboard", icon: DashboardIcon },
   { id: "calendar" as const, label: "Calendar", icon: CalendarIcon },
   { id: "agent" as const, label: "Agent", icon: AgentIcon },
   { id: "customers" as const, label: "Customers", icon: CustomersIcon },
@@ -135,6 +138,9 @@ export function DashboardApp({
         <div className="border-b border-[#ead9b9] bg-amber-soft px-6 py-2.5 text-center text-sm text-[#7c5b22]">{error}</div>
       )}
       <main>
+        {page === "dashboard" ? (
+          <DashboardPage api={api} anchorDate={anchorDate} refreshKey={domainVersion} />
+        ) : null}
         {page === "calendar" ? (
           <CalendarPage
             anchorDate={anchorDate}

@@ -39,6 +39,7 @@ function calendar(): CalendarResponse {
     services: [
       { id: "haircut", name: "Signature haircut", durationMinutes: 60, priceCents: 4500 },
       { id: "fade", name: "Skin fade", durationMinutes: 60, priceCents: 5200 },
+      { id: "beard", name: "Beard sculpt", durationMinutes: 30, priceCents: 2800 },
     ],
     appointments: [
       {
@@ -81,6 +82,21 @@ function calendar(): CalendarResponse {
         serviceName: "Skin fade",
         startAt: "2026-07-20T17:00:00.000Z",
         endAt: "2026-07-20T18:00:00.000Z",
+        status: "confirmed",
+        discountPercent: 0,
+        version: 1,
+        history: [],
+      },
+      {
+        id: "eli-short",
+        customerId: "eli",
+        customerName: "Eli",
+        barberId: "devon",
+        barberName: "Devon",
+        serviceId: "beard",
+        serviceName: "Beard sculpt",
+        startAt: "2026-07-20T19:00:00.000Z",
+        endAt: "2026-07-20T19:30:00.000Z",
         status: "confirmed",
         discountPercent: 0,
         version: 1,
@@ -132,6 +148,7 @@ function api(): ReviveApi {
   return {
     getCalendar: vi.fn(async () => calendar()),
     getCalendarRange: vi.fn(async () => calendar()),
+    getDashboard: vi.fn(async () => { throw new Error("unused"); }),
     getAvailability: vi.fn(async () => ({
       date: "2026-07-20",
       timezone: "America/Toronto",
@@ -195,9 +212,9 @@ describe("CalendarPage", () => {
     const user = userEvent.setup();
     render(<Harness />);
 
-    expect(screen.getByRole("columnheader", { name: "Jeremy" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Maya" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Devon" })).toBeInTheDocument();
+    expect(screen.getByLabelText("July 2026 mini calendar")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "All barbers" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Jeremy" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Sarah, Signature haircut/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Nadia, Skin fade/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Josh, Signature haircut/ })).not.toBeInTheDocument();
@@ -206,6 +223,26 @@ describe("CalendarPage", () => {
     expect(screen.getByRole("columnheader", { name: "Maya" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Jeremy" })).not.toBeInTheDocument();
     expect(screen.queryByText("Sarah")).not.toBeInTheDocument();
+  });
+
+  it("uses a viewport-sized 6 AM to midnight grid and compact copy for short appointments", () => {
+    render(<Harness />);
+
+    const calendarRegion = screen.getByLabelText("Day calendar");
+    expect(calendarRegion).toHaveAttribute("data-start-hour", "6");
+    expect(calendarRegion).toHaveAttribute("data-end-hour", "24");
+    expect(calendarRegion).not.toHaveClass("overflow-x-auto");
+    expect(within(calendarRegion).getByText("6 AM")).not.toHaveClass("-translate-y-1/2");
+    expect(within(calendarRegion).getByText("11 PM")).toBeInTheDocument();
+    expect(within(calendarRegion).getByTestId("calendar-scroll-region")).toHaveClass("overflow-y-auto");
+
+    const shortAppointment = screen.getByRole("button", { name: /Eli, Beard sculpt/ });
+    expect(shortAppointment).toHaveAttribute("data-density", "compact");
+    expect(shortAppointment).toHaveAttribute("data-visual", "solid");
+    expect(within(shortAppointment).getByText("Eli · Beard sculpt · Devon")).toBeInTheDocument();
+
+    const fullAppointment = screen.getByRole("button", { name: /Sarah, Signature haircut/ });
+    expect(within(fullAppointment).getByText("6:00 PM–7:00 PM")).toBeInTheDocument();
   });
 
   it("switches among day, week, and month and opens a month date in day view", async () => {
@@ -217,7 +254,8 @@ describe("CalendarPage", () => {
     expect(screen.getByText("Tue 21")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Month" }));
     expect(screen.getByLabelText("Month calendar")).toBeInTheDocument();
-    expect(screen.getByText("2 appointments")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Month calendar")).getByText("Sun")).toBeInTheDocument();
+    expect(screen.getByText("3 appointments")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open Tuesday, July 21" }));
     expect(screen.getByLabelText("Day calendar")).toBeInTheDocument();
     expect(screen.getByText("Tuesday, July 21")).toBeInTheDocument();

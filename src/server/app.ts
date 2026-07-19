@@ -10,6 +10,7 @@ import { findAvailableSlots } from "../domain/scheduling.js";
 import type { ReviveStore } from "../domain/store.js";
 import type { SchedulingSettings } from "../domain/types.js";
 import type { AppConfig } from "./config.js";
+import { projectDashboard } from "./dashboard.js";
 import {
   projectActivity,
   projectConversationDetail,
@@ -55,6 +56,11 @@ const calendarQuerySchema = z.object({
     context.addIssue({ code: "custom", message: "Provide either date or start and end." });
   }
 });
+
+const dashboardQuerySchema = z.object({
+  start: isoDateSchema,
+  end: isoDateSchema,
+}).strict();
 
 const availabilityQuerySchema = z.object({
   date: isoDateSchema,
@@ -290,6 +296,24 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       channelHealth: providerReadiness(options.config, storeKind),
       demoDate: getDemoDate(clock(), state.settings.timezone),
     };
+  });
+
+  app.get("/api/v1/dashboard", async (request, reply) => {
+    const query = dashboardQuerySchema.parse(request.query);
+    const localStart = DateTime.fromISO(query.start, { zone: options.config.timezone });
+    const localEnd = DateTime.fromISO(query.end, { zone: options.config.timezone });
+    const rangeDays = localEnd.diff(localStart, "days").days;
+    if (
+      !localStart.isValid
+      || !localEnd.isValid
+      || localStart.toISODate() !== query.start
+      || localEnd.toISODate() !== query.end
+      || rangeDays < 0
+      || rangeDays > 41
+    ) {
+      return reply.status(400).send({ error: "invalid_date" });
+    }
+    return projectDashboard(await options.store.read(), query);
   });
 
   app.get("/api/v1/settings", async () => (await options.store.read()).settings);
