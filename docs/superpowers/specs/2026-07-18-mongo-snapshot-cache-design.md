@@ -2,17 +2,17 @@
 
 ## Goal
 
-Make read-only operator interactions effectively immediate while keeping MongoDB as REVIVE's durable source of persistence. This design targets the hackathon deployment shape: one backend process is the only writer to the database.
+Make read-only operator interactions effectively immediate while keeping MongoDB as Re-Slot's durable source of persistence. This design targets the hackathon deployment shape: one backend process is the only writer to the database.
 
 ## Root Cause
 
-Every call to `MongoReviveStore.read()` currently reloads the complete domain state using fourteen sequential Mongo queries. Operator pages call several read endpoints, conversation and customer selection each trigger another complete reload, and the refill worker performs two reads every second while idle. Against remote Atlas this produces roughly 0.55–0.96 seconds of server latency per request.
+Every call to `MongoReSlotStore.read()` currently reloads the complete domain state using fourteen sequential Mongo queries. Operator pages call several read endpoints, conversation and customer selection each trigger another complete reload, and the refill worker performs two reads every second while idle. Against remote Atlas this produces roughly 0.55–0.96 seconds of server latency per request.
 
 SSE is not streaming the records from MongoDB. It only broadcasts an invalidation event after an in-process store transaction commits.
 
 ## Design
 
-`MongoReviveStore` will own a `latestState` snapshot:
+`MongoReSlotStore` will own a `latestState` snapshot:
 
 - Initialization loads Mongo once, or uses the seeded replacement state, before the server accepts traffic.
 - `read()` returns a structured clone of `latestState` without querying Mongo.

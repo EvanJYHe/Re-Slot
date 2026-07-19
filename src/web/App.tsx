@@ -99,8 +99,8 @@ export function DashboardApp({
   return (
     <div className="min-h-screen bg-canvas text-ink">
       <header className="sticky top-0 z-30 grid h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-line bg-panel px-5 lg:px-8">
-        <h1 aria-label="REVIVE" className="justify-self-start text-[19px] font-semibold tracking-[-0.05em]">
-          RE<span className="px-0.5 text-revive">·</span>VIVE
+        <h1 aria-label="Re-Slot" className="justify-self-start text-[19px] font-semibold tracking-[-0.05em]">
+          RE<span className="px-0.5 text-revive">·</span>SLOT
         </h1>
         <nav aria-label="Primary" className="flex items-center gap-1">
           {destinations.map((destination) => {

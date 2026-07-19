@@ -36,7 +36,7 @@ Set one fixture’s `hasException` to `true`, then assert that the row renders `
 ```tsx
 const { container } = render(<AgentPage api={api()} refreshKey={0} />);
 expect(await screen.findByText("Exception")).toBeInTheDocument();
-expect(container.querySelector(".rounded-full.bg-revive")).toBeNull();
+expect(container.querySelector(".rounded-full.bg-re-slot")).toBeNull();
 expect(container.querySelector(".rounded-full.bg-amber")).toBeNull();
 expect(screen.getByRole("region", { name: "Agent inbox" })).toHaveClass("rounded-[4px]");
 ```
@@ -87,7 +87,7 @@ const refillCard = screen.getByRole("button", { name: /Waiting for Sarah/ });
 expect(refillCard.querySelector(".rounded-full")).toBeNull();
 await user.click(refillCard);
 const refill = screen.getByRole("dialog", { name: "Refill timeline" });
-expect(refill.querySelector(".rounded-full.bg-revive")).toBeNull();
+expect(refill.querySelector(".rounded-full.bg-re-slot")).toBeNull();
 ```
 
 - [ ] **Step 2: Run the focused test and verify failure**
@@ -128,19 +128,19 @@ Expected: all CalendarPage tests PASS.
 
 - [ ] **Step 1: Write failing shell-radius tests**
 
-Assert the Customers summary and workspace parents, Settings section shells, and shared modal shell use `rounded-[4px]`. Also assert representative nested inputs retain `rounded-revive`.
+Assert the Customers summary and workspace parents, Settings section shells, and shared modal shell use `rounded-[4px]`. Also assert representative nested inputs retain `rounded-re-slot`.
 
 ```tsx
 const allCustomers = await screen.findByRole("button", { name: /All customers/ });
 expect(allCustomers.parentElement).toHaveClass("rounded-[4px]");
-expect(screen.getByRole("searchbox")).toHaveClass("rounded-revive");
+expect(screen.getByRole("searchbox")).toHaveClass("rounded-re-slot");
 
 const automation = screen.getByRole("heading", { name: "Automation" }).closest("section");
 expect(automation).toHaveClass("rounded-[4px]");
 
 const dialog = screen.getByRole("dialog", { name: "New appointment" });
 expect(dialog).toHaveClass("rounded-[4px]");
-expect(within(dialog).getByLabelText("Customer")).toHaveClass("rounded-revive");
+expect(within(dialog).getByLabelText("Customer")).toHaveClass("rounded-re-slot");
 ```
 
 - [ ] **Step 2: Run the focused tests and verify failure**
@@ -157,7 +157,7 @@ Replace `rounded-xl` with `rounded-[4px]` only on:
 - the Settings Automation and Demo week section shells;
 - the shared `Modal` section in `src/web/components/ui.tsx`.
 
-Preserve the user’s concurrent Customers booking-section changes. Do not replace any nested `rounded-xl`, `rounded-revive`, `rounded-lg`, or `rounded-full` classes outside the approved shells.
+Preserve the user’s concurrent Customers booking-section changes. Do not replace any nested `rounded-xl`, `rounded-re-slot`, `rounded-lg`, or `rounded-full` classes outside the approved shells.
 
 - [ ] **Step 4: Run the focused tests and verify success**
 
@@ -176,7 +176,7 @@ Expected: all focused tests PASS.
 
 - [ ] **Step 1: Search for forbidden remnants**
 
-Run: `rg -n "StatusDot|rounded-full bg-(revive|amber|white)" src/web`
+Run: `rg -n "StatusDot|rounded-full bg-(re-slot|amber|white)" src/web`
 
 Expected: no `StatusDot` occurrences and no decorative dot combinations. Functional circular controls and progress bars may remain when they do not match the forbidden combinations.
 

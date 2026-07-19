@@ -141,7 +141,7 @@ export class TelegramWebhookHandler {
     if (customer === undefined) {
       await this.options.transport.sendMessage(
         chatId,
-        "This Telegram account is not linked to a REVIVE demo customer. Please use your private demo link.",
+        "This Telegram account is not linked to a Re-Slot demo customer. Please use your private demo link.",
       );
       return { status: "processed" };
     }
@@ -219,7 +219,7 @@ export class TelegramWebhookHandler {
         occurredAt: this.clock(),
       });
     } catch {
-      const safeMessage = "REVIVE is having trouble reaching the scheduling assistant right now. Your appointments have not been changed.";
+      const safeMessage = "Re-Slot is having trouble reaching the scheduling assistant right now. Your appointments have not been changed.";
       await this.options.transport.sendMessage(
         chatId,
         safeMessage,
@@ -232,7 +232,7 @@ export class TelegramWebhookHandler {
         providerEventId: `telegram:error:${update.update_id}`,
         kind: "error",
         speaker: "system",
-        text: "REVIVE could not reach the scheduling assistant. No appointment was changed.",
+        text: "Re-Slot could not reach the scheduling assistant. No appointment was changed.",
         deliveryState: "failed",
         ...(activeOffer === undefined ? {} : {
           offerId: activeOffer.id,
@@ -249,7 +249,7 @@ export class TelegramWebhookHandler {
       ? undefined
       : customerFromLinkToken(token, this.options.linkSecret);
     if (customerId === undefined) {
-      await this.options.transport.sendMessage(chatId, "That REVIVE demo link is invalid or incomplete.");
+      await this.options.transport.sendMessage(chatId, "That Re-Slot demo link is invalid or incomplete.");
       return;
     }
     const result = await this.options.store.transaction((state) => {
@@ -269,7 +269,7 @@ export class TelegramWebhookHandler {
     if (result.status === "linked") {
       await this.options.transport.sendMessage(
         chatId,
-        `You're linked as ${result.name}. Ask REVIVE to check availability, book, move, or cancel an appointment.`,
+        `You're linked as ${result.name}. Ask Re-Slot to check availability, book, move, or cancel an appointment.`,
       );
       return;
     }

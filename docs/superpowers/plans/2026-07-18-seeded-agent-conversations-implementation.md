@@ -25,7 +25,7 @@
 - Modify: `src/server/seed.ts`
 
 **Interfaces:**
-- Consumes: `createDemoState(options: CreateDemoStateOptions): ReviveState`, existing `Appointment`, `RefillJob`, `OutreachOffer`, `Conversation`, and `ConversationEvent` domain types.
+- Consumes: `createDemoState(options: CreateDemoStateOptions): ReSlotState`, existing `Appointment`, `RefillJob`, `OutreachOffer`, `Conversation`, and `ConversationEvent` domain types.
 - Produces: five stable `Conversation` records and their chronological `ConversationEvent` ledger, plus prior-week appointment/refill context.
 
 - [x] **Step 1: Import the normalized conversation and refill types**
@@ -109,7 +109,7 @@ Also assert zero confirmed barber/customer overlaps and that `josh-appt` and `sa
 
 - [x] **Step 5: Apply the seed to MongoDB**
 
-Use `MongoReviveStore.replace` with a fresh `createDemoState` result. Preserve current linked identities, Backboard thread mappings, and processed provider event IDs. Replace stale demo conversations with the five approved seeded conversations.
+Use `MongoReSlotStore.replace` with a fresh `createDemoState` result. Preserve current linked identities, Backboard thread mappings, and processed provider event IDs. Replace stale demo conversations with the five approved seeded conversations.
 
 - [x] **Step 6: Verify the running APIs**
 

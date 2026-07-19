@@ -29,7 +29,7 @@ const config: AppConfig = {
   sarahPhone: "+14165550101",
 };
 
-describe("REVIVE runtime", () => {
+describe("Re-Slot runtime", () => {
   let runtime: ReviveRuntime | undefined;
   let staticRoot: string | undefined;
 
@@ -60,7 +60,7 @@ describe("REVIVE runtime", () => {
 
   it("serves the built React shell and preserves API 404s", async () => {
     staticRoot = await mkdtemp(join(tmpdir(), "revive-static-"));
-    await writeFile(join(staticRoot, "index.html"), "<!doctype html><title>REVIVE board</title>");
+    await writeFile(join(staticRoot, "index.html"), "<!doctype html><title>Re-Slot board</title>");
     runtime = await createRuntime(config, { clock: () => now, staticRoot });
 
     const page = await runtime.app.inject({ method: "GET", url: "/" });
@@ -68,7 +68,7 @@ describe("REVIVE runtime", () => {
 
     expect(page.statusCode).toBe(200);
     expect(page.headers["content-type"]).toContain("text/html");
-    expect(page.body).toContain("REVIVE board");
+    expect(page.body).toContain("Re-Slot board");
     expect(missingApi.statusCode).toBe(404);
     expect(missingApi.headers["content-type"]).toContain("application/json");
   });

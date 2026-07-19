@@ -65,7 +65,7 @@ describe("ElevenLabsWebhookService", () => {
     const authorization = `Bearer ${context.dynamic_variables.secret__actor_token}`;
 
     await expect(service.executeTool("get_shop_info", { topic: "hours" }, authorization))
-      .resolves.toMatchObject({ name: "REVIVE", hours: expect.any(String) });
+      .resolves.toMatchObject({ name: "Re-Slot", hours: expect.any(String) });
     await expect(service.executeTool("get_my_appointments", {}, authorization))
       .resolves.toMatchObject({ type: "error", code: "UNLINKED_ACTOR" });
   });

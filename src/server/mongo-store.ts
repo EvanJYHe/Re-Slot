@@ -280,7 +280,7 @@ export class MongoReviveStore implements ReviveStore {
     const settingsDocument = await this.collection(collectionNames.settings)
       .findOne({ _id: "shop" }, findOptions);
     if (settingsDocument === null) {
-      throw new Error("REVIVE shop settings have not been initialized.");
+      throw new Error("Re-Slot shop settings have not been initialized.");
     }
     const { _id: _settingsId, ...settings } = settingsDocument;
     return {

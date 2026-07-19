@@ -222,7 +222,9 @@ describe("CustomersPage", () => {
     render(<CustomersPage api={api()} refreshKey={0} />);
 
     expect(await screen.findByRole("heading", { name: "Customer intelligence" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /All customers 4/ })).toBeInTheDocument();
+    const allCustomers = screen.getByRole("button", { name: /All customers 4/ });
+    expect(allCustomers).toBeInTheDocument();
+    expect(allCustomers.parentElement).toHaveClass("rounded-[4px]");
     expect(screen.getByRole("button", { name: /Booked 1/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Waitlisted 1/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ready to contact 1/ })).toBeInTheDocument();
@@ -233,8 +235,9 @@ describe("CustomersPage", () => {
 
     await user.click(screen.getByRole("button", { name: /Olivia/ }));
     const record = await screen.findByRole("region", { name: "Olivia customer record" });
+    expect(record.parentElement).toHaveClass("rounded-[4px]");
     expect(within(record).getByText("Ready to contact")).toBeInTheDocument();
-    expect(within(record).getByText("Booking context")).toBeInTheDocument();
+    expect(within(record).getByText("Booking")).toBeInTheDocument();
     expect(within(record).getByText("4 visits")).toBeInTheDocument();
     expect(within(record).getByText("Signature haircut · Maya")).toBeInTheDocument();
     expect(within(record).getByText("Last Jun 22, 2026")).toBeInTheDocument();
@@ -245,6 +248,7 @@ describe("CustomersPage", () => {
     render(<CustomersPage api={api()} refreshKey={0} />);
 
     expect(await screen.findByRole("heading", { name: "Customer intelligence" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search customers" })).toHaveClass("rounded-revive");
     await user.click(await screen.findByRole("button", { name: /Sarah/ }));
     const record = await screen.findByRole("region", { name: "Sarah customer record" });
 

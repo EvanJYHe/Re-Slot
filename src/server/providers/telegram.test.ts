@@ -210,7 +210,7 @@ describe("TelegramWebhookHandler", () => {
         kind: "error",
         speaker: "system",
         deliveryState: "failed",
-        text: "REVIVE could not reach the scheduling assistant. No appointment was changed.",
+        text: "Re-Slot could not reach the scheduling assistant. No appointment was changed.",
       }),
     ]));
     expect(JSON.stringify(snapshot.conversationEvents)).not.toContain("provider secret detail");

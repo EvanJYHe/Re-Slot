@@ -43,7 +43,7 @@ export class ProviderOfferSender implements OfferSender {
       : "";
     const composed = await this.options.backboard.reply({
       content: [
-        "Write one short outbound REVIVE appointment offer; do not call tools.",
+        "Write one short outbound Re-Slot appointment offer; do not call tools.",
         `Customer: ${delivery.customer.name}.`,
         `Barber: ${delivery.barber.name}. Service: ${delivery.service.name}.`,
         `Proposed time: ${proposed}. Current time: ${original}.`,

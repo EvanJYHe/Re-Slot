@@ -29,7 +29,7 @@ function calendar(): CalendarResponse {
     timezone: "America/Toronto",
     generatedAt: "2026-07-18T16:00:00.000Z",
     demoDate: "2026-07-20",
-    shop: { name: "REVIVE", location: "Toronto, ON" },
+    shop: { name: "Re-Slot", location: "Toronto, ON" },
     businessHours: { start: "10:00", end: "20:00" },
     barbers: [
       { id: "jeremy", name: "Jeremy", serviceIds: ["haircut"], weeklyHours: {} },
@@ -134,7 +134,7 @@ function calendar(): CalendarResponse {
       customerState: "Waiting for Sarah.",
       timeline: [
         { type: "opening_created", at: "2026-07-20T16:00:00.000Z", message: "Josh cancelled his 5 PM appointment." },
-        { type: "offer_delivered", at: "2026-07-20T16:00:05.000Z", message: "REVIVE called Sarah." },
+        { type: "offer_delivered", at: "2026-07-20T16:00:05.000Z", message: "Re-Slot called Sarah." },
       ],
       version: 2,
       createdAt: "2026-07-20T16:00:00.000Z",
@@ -294,10 +294,13 @@ describe("CalendarPage", () => {
     await user.click(screen.getByRole("button", { name: /Sarah, Signature haircut/ }));
     expect(within(screen.getByRole("dialog", { name: "Appointment details" })).getByText("Jeremy")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Close Appointment details" }));
-    await user.click(screen.getByRole("button", { name: /Waiting for Sarah/ }));
+    const refillCard = screen.getByRole("button", { name: /Waiting for Sarah/ });
+    expect(refillCard.querySelector(".rounded-full")).toBeNull();
+    await user.click(refillCard);
     const refill = screen.getByRole("dialog", { name: "Refill timeline" });
     expect(within(refill).getByText("Josh cancelled his 5 PM appointment.")).toBeInTheDocument();
-    expect(within(refill).getByText("REVIVE called Sarah.")).toBeInTheDocument();
+    expect(within(refill).getByText("Re-Slot called Sarah.")).toBeInTheDocument();
+    expect(refill.querySelector(".rounded-full.bg-revive")).toBeNull();
   });
 
   it("books from live availability and refetches after confirmation", async () => {
@@ -321,8 +324,10 @@ describe("CalendarPage", () => {
 
     await user.click(screen.getByRole("button", { name: "New appointment" }));
     const dialog = screen.getByRole("dialog", { name: "New appointment" });
+    expect(dialog).toHaveClass("rounded-[4px]");
     await waitFor(() => expect(client.getCustomers).toHaveBeenCalled());
     await waitFor(() => expect(client.getAvailability).toHaveBeenCalled());
+    expect(within(dialog).getByLabelText("Customer")).toHaveClass("rounded-revive");
     await user.selectOptions(within(dialog).getByLabelText("Time"), "2026-07-20T19:00:00.000Z");
     await user.click(within(dialog).getByRole("button", { name: "Confirm appointment" }));
 

@@ -1,4 +1,4 @@
-# REVIVE live conversation widget
+# Re-Slot live conversation widget
 
 ## Purpose
 
@@ -24,7 +24,7 @@ Give the front-desk operator a compact, real-time view of the newest ongoing AI 
 ## Presentation
 
 - Fix the panel to the bottom-left of the desktop viewport with a small safe margin.
-- Use an approximately 340 by 230 pixel dark charcoal panel inspired by compact call overlays, while retaining REVIVE typography and restrained green accents.
+- Use an approximately 340 by 230 pixel dark charcoal panel inspired by compact call overlays, while retaining Re-Slot typography and restrained green accents.
 - The header shows the customer name, channel (`Telegram` or `Voice`), and a small live indicator.
 - The body shows up to the latest three message or transcript events in chronological order.
 - Customer messages and agent messages use clearly different alignment and surface treatments.
@@ -33,7 +33,7 @@ Give the front-desk operator a compact, real-time view of the newest ongoing AI 
 
 ## Data flow
 
-1. The widget receives the existing `ReviveApi` and shell `domainVersion`.
+1. The widget receives the existing `ReSlotApi` and shell `domainVersion`.
 2. On mount and every domain-version change, it calls `getConversations()`.
 3. It chooses the newest active summary and calls `getConversation(id)` for its transcript.
 4. Stale async responses are ignored when the active conversation changes or the component unmounts.

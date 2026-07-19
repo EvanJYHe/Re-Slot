@@ -1,11 +1,11 @@
-# REVIVE scheduling operator design
+# Re-Slot scheduling operator design
 
 **Date:** 2026-07-18
 **Scope:** one Toronto barbershop, one operational week, demo-first production channels
 
 ## Product boundary
 
-REVIVE recovers newly opened appointment time without giving a language model authority over scheduling state. It supports booking, cancellation, rescheduling, availability and business questions, earlier-move consent, waitlist outreach, alternate qualified barbers, and opted-in past-customer outreach. It intentionally excludes multi-tenancy, payments, analytics, and a general command centre.
+Re-Slot recovers newly opened appointment time without giving a language model authority over scheduling state. It supports booking, cancellation, rescheduling, availability and business questions, earlier-move consent, waitlist outreach, alternate qualified barbers, and opted-in past-customer outreach. It intentionally excludes multi-tenancy, payments, analytics, and a general command centre.
 
 The golden path is Josh cancelling by Telegram, Sarah explicitly accepting the earlier 5 PM time by phone, and Alex accepting Sarah's resulting 6 PM opening by Telegram.
 

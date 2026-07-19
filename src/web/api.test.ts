@@ -6,7 +6,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("REVIVE browser API", () => {
+describe("Re-Slot browser API", () => {
   it("requests authoritative calendar ranges", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ range: {} }), {
       status: 200,

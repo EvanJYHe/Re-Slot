@@ -200,17 +200,15 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
       </header>
       <div className="divide-y divide-line">
         <section className="px-5 py-5 lg:px-7">
-          <div className="rounded-xl border border-[#cbdacf] bg-[#f1f6f2] p-4 lg:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h4 className="text-base font-semibold">Booking context</h4>
-              </div>
+          <div className="py-1">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h4 className="text-sm font-semibold">Booking</h4>
               <BookingStateBadge label={detail.relationship.bookingStateLabel} state={detail.relationship.bookingState} />
             </div>
-            <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-[#d8e2da] bg-[#d8e2da] sm:grid-cols-2 xl:grid-cols-4">
-              <div className="bg-white px-3.5 py-3">
-                <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted">Current demand</dt>
-                <dd className="mt-1.5 text-sm font-medium">
+            <dl className="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div>
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Current request</dt>
+                <dd className="mt-1 text-sm font-medium">
                   {detail.relationship.bookingState === "booked"
                     ? `${detail.relationship.nextServiceName} · ${detail.relationship.nextBarberName}`
                     : detail.relationship.bookingState === "waitlisted"
@@ -218,26 +216,26 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
                       : "No active request"}
                 </dd>
               </div>
-              <div className="bg-white px-3.5 py-3">
-                <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted">Relationship</dt>
-                <dd className="mt-1.5 text-sm font-medium">{detail.relationship.visitCount} {detail.relationship.visitCount === 1 ? "visit" : "visits"}</dd>
-                <span className="mt-0.5 block text-[11px] text-muted">
+              <div>
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Visits</dt>
+                <dd className="mt-1 text-sm font-medium">{detail.relationship.visitCount} {detail.relationship.visitCount === 1 ? "visit" : "visits"}</dd>
+                <span className="mt-0.5 block text-xs text-muted">
                   {detail.relationship.lastVisitAt === undefined ? "No visit recorded" : `Last ${formatVisitDate(detail.relationship.lastVisitAt)}`}
                 </span>
               </div>
-              <div className="bg-white px-3.5 py-3">
-                <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted">Usual booking</dt>
-                <dd className="mt-1.5 text-sm font-medium">
+              <div>
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Usually books</dt>
+                <dd className="mt-1 text-sm font-medium">
                   {detail.relationship.usualServiceName === undefined
                     ? "Still learning"
                     : `${detail.relationship.usualServiceName} · ${detail.relationship.usualBarberName ?? "Any barber"}`}
                 </dd>
               </div>
-              <div className="bg-white px-3.5 py-3">
-                <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted">Contact route</dt>
-                <dd className="mt-1.5 text-sm font-medium capitalize">{detail.preferences.contactPreference}</dd>
-                <span className="mt-0.5 block text-[11px] text-muted">
-                  {detail.relationship.outreachEligible ? "Eligible when an opening matches" : "Only for active scheduling needs"}
+              <div>
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Reaches them by</dt>
+                <dd className="mt-1 text-sm font-medium capitalize">{detail.preferences.contactPreference}</dd>
+                <span className="mt-0.5 block text-xs text-muted">
+                  {detail.relationship.outreachEligible ? "When an opening matches" : "Active requests only"}
                 </span>
               </div>
             </dl>
@@ -248,7 +246,7 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
           <div className="mt-2 max-w-2xl">
             <PreferenceToggle
               checked={detail.preferences.earlierMoveConsent}
-              detail="REVIVE may offer an earlier opening when the same service and barber match."
+              detail="Re-Slot may offer an earlier opening when the same service and barber match."
               disabled={saving === "Saving…"}
               label="Offer earlier appointments"
               onChange={(checked) => void updatePreference({ earlierMoveConsent: checked })}
@@ -396,7 +394,7 @@ export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
       </div>
       <div className="p-5 lg:p-8">
         <div className="mx-auto max-w-7xl">
-          <div className="grid overflow-hidden rounded-xl border border-line bg-panel shadow-panel sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid overflow-hidden rounded-[4px] border border-line bg-panel shadow-panel sm:grid-cols-2 lg:grid-cols-4">
             {funnel.map((item, index) => (
               <button
                 aria-label={`${item.label} ${item.value}`}
@@ -417,7 +415,7 @@ export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
             ))}
           </div>
         </div>
-        <div className="mx-auto mt-4 grid min-h-[680px] max-w-7xl overflow-hidden rounded-xl border border-line bg-panel shadow-panel md:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="mx-auto mt-4 grid min-h-[680px] max-w-7xl overflow-hidden rounded-[4px] border border-line bg-panel shadow-panel md:grid-cols-[340px_minmax(0,1fr)]">
           <aside className="min-h-0 border-r border-line">
             <div className="border-b border-line p-4">
               <label className="sr-only" htmlFor="customer-search">Search customers</label>

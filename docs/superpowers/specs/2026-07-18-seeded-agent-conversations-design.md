@@ -2,13 +2,13 @@
 
 ## Goal
 
-Populate the Agent inbox with five concise, polished demo conversations that showcase REVIVE's scheduling happy paths through the existing normalized conversation APIs and UI. Preserve the current operational week and its live Josh/Sarah/Alex walkthrough.
+Populate the Agent inbox with five concise, polished demo conversations that showcase Re-Slot's scheduling happy paths through the existing normalized conversation APIs and UI. Preserve the current operational week and its live Josh/Sarah/Alex walkthrough.
 
 ## Seeded scenarios
 
-1. **Liam — Telegram inbound cancellation.** Liam asks to cancel a prior-week appointment. REVIVE confirms the cancellation and records that refill automation started.
-2. **Ava — outbound voice earlier-slot offer.** REVIVE offers Liam's opening to Ava. Ava confirms the earlier time, and the ledger records consent and the completed move.
-3. **Mateo — outbound Telegram refill offer.** REVIVE offers Ava's former time to Mateo. Mateo accepts, and the ledger records that the opening was filled.
+1. **Liam — Telegram inbound cancellation.** Liam asks to cancel a prior-week appointment. Re-Slot confirms the cancellation and records that refill automation started.
+2. **Ava — outbound voice earlier-slot offer.** Re-Slot offers Liam's opening to Ava. Ava confirms the earlier time, and the ledger records consent and the completed move.
+3. **Mateo — outbound Telegram refill offer.** Re-Slot offers Ava's former time to Mateo. Mateo accepts, and the ledger records that the opening was filled.
 4. **Zoe — Telegram inbound booking.** Zoe asks for availability, chooses a concise option, confirms it, and receives a booking confirmation.
 5. **Benjamin — voice inbound reschedule.** Benjamin asks to move an appointment, confirms the proposed time, and receives a completed reschedule confirmation.
 

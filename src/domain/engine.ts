@@ -261,7 +261,7 @@ export class ReviveEngine {
         operation: "cancel",
         message: refillJob === undefined
           ? "Your appointment has been cancelled."
-          : "Your appointment has been cancelled, and REVIVE is finding someone for the opening.",
+          : "Your appointment has been cancelled, and Re-Slot is finding someone for the opening.",
         appointmentId: target.id,
         ...(refillJob === undefined ? {} : { refillJobId: refillJob.id }),
       } satisfies OperationResult;
@@ -510,7 +510,7 @@ export class ReviveEngine {
       timeline: [{
         type: "opening_created",
         at: now,
-        message: "The appointment was cancelled. REVIVE started looking for a replacement.",
+        message: "The appointment was cancelled. Re-Slot started looking for a replacement.",
       }],
       version: 1,
       createdAt: now,

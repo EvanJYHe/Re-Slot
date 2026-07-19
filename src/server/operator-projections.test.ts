@@ -233,7 +233,7 @@ describe("operator projections", () => {
       }),
     ]));
     expect(activity).toEqual(expect.arrayContaining([
-      expect.objectContaining({ message: "REVIVE delivered an appointment offer to Alex via Telegram." }),
+      expect.objectContaining({ message: "Re-Slot delivered an appointment offer to Alex via Telegram." }),
     ]));
     expect(serialized).not.toContain("+14165550101");
     expect(serialized).not.toContain('"telegramChatId"');

@@ -37,7 +37,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const payload = text === "" ? {} : JSON.parse(text) as Record<string, unknown>;
   if (!response.ok) {
     throw new ReviveApiError(
-      typeof payload.message === "string" ? payload.message : `REVIVE request failed (${response.status}).`,
+      typeof payload.message === "string" ? payload.message : `Re-Slot request failed (${response.status}).`,
       response.status,
       typeof payload.code === "string" ? payload.code : undefined,
     );

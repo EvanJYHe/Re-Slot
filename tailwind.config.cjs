@@ -9,7 +9,7 @@ module.exports = {
         ink: "#202722",
         muted: "#6d766f",
         line: "#e2e6e1",
-        revive: "#19724b",
+        "revive": "#19724b",
         "revive-dark": "#105336",
         amber: "#eaa63a",
         "amber-soft": "#fff5df",
@@ -19,7 +19,7 @@ module.exports = {
         mono: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       borderRadius: {
-        revive: "8px",
+        "revive": "8px",
       },
       boxShadow: {
         panel: "0 1px 2px rgba(23, 35, 28, 0.04), 0 10px 28px rgba(23, 35, 28, 0.04)",

@@ -4,7 +4,7 @@
 
 **Goal:** Serve operator and worker reads from the latest committed in-process snapshot while MongoDB remains durable persistence.
 
-**Architecture:** `MongoReviveStore` primes one `ReviveState` snapshot during initialization. Reads clone that snapshot; successful transactions and replacements atomically publish their committed state to the snapshot and existing subscribers.
+**Architecture:** `MongoReSlotStore` primes one `ReSlotState` snapshot during initialization. Reads clone that snapshot; successful transactions and replacements atomically publish their committed state to the snapshot and existing subscribers.
 
 **Tech Stack:** TypeScript, MongoDB Node.js driver, Vitest, mongodb-memory-server.
 
@@ -23,7 +23,7 @@
 - Modify: `src/server/mongo-store.integration.test.ts`
 
 **Interfaces:**
-- Consumes: `MongoReviveStore.initialize()` and `MongoReviveStore.read()`.
+- Consumes: `MongoReSlotStore.initialize()` and `MongoReSlotStore.read()`.
 - Produces: Regression coverage that repeated reads do not reload Mongo state.
 
 - [x] **Step 1: Add a failing repeated-read test**
@@ -33,7 +33,7 @@ Spy on the store's private runtime `readState` method after initialization, call
 ```ts
 it("serves isolated reads from the initialized snapshot", async () => {
   const readState = vi.spyOn(
-    store as unknown as { readState(): Promise<ReviveState> },
+    store as unknown as { readState(): Promise<ReSlotState> },
     "readState",
   );
 
@@ -62,7 +62,7 @@ Expected: the new test fails because `readState` is called twice.
 - Modify: `src/server/mongo-store.ts`
 
 **Interfaces:**
-- Consumes: `ReviveState`, Mongo transaction commit semantics, and existing store subscribers.
+- Consumes: `ReSlotState`, Mongo transaction commit semantics, and existing store subscribers.
 - Produces: `latestState`, a snapshot publishing helper, and memory-backed `read()` behavior.
 
 - [x] **Step 1: Prime and clone the initialized snapshot**

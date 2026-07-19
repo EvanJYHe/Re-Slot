@@ -1,7 +1,7 @@
-# REVIVE implementation plan and execution record
+# Re-Slot implementation plan and execution record
 
 **Date:** 2026-07-18
-**Branch:** `feat/revive-operator`
+**Branch:** `feat/re-slot-operator`
 
 ## Delivered sequence
 

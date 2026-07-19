@@ -1,18 +1,18 @@
-# REVIVE Front-Desk Redesign Implementation Plan
+# Re-Slot Front-Desk Redesign Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the decorative day board with a Tailwind-first front-desk workspace where an owner can operate the calendar and supervise real Telegram and ElevenLabs activity across Calendar, Agent, Customers, and Settings.
 
-**Architecture:** Preserve the deterministic `ReviveEngine`, worker, and provider boundaries. Extend the shared state with normalized conversation events and operator notes, expose safe admin-authenticated read models and mutations through Fastify, and rebuild the React client as four focused page components that refetch authoritative state after SSE invalidation.
+**Architecture:** Preserve the deterministic `ReSlotEngine`, worker, and provider boundaries. Extend the shared state with normalized conversation events and operator notes, expose safe admin-authenticated read models and mutations through Fastify, and rebuild the React client as four focused page components that refetch authoritative state after SSE invalidation.
 
 **Tech Stack:** TypeScript 5, React, Vite, Tailwind CSS 3.4, Fastify, Zod, Luxon, MongoDB driver, Vitest, React Testing Library, browser-harness, Railway.
 
 ## Global Constraints
 
 - Tailwind CSS 3.4 is the primary styling system; custom CSS is limited to Tailwind directives, font/base declarations, and runtime calendar geometry.
-- Keep the REVIVE palette near-white, charcoal, muted green, and pale amber; no gradients, textures, oversized display typography, or decorative dashboard widgets.
-- Preserve `ReviveEngine`, refill ranking, offer sequencing, provider authentication, SSE refetch, and the golden path.
+- Keep the Re-Slot palette near-white, charcoal, muted green, and pale amber; no gradients, textures, oversized display typography, or decorative dashboard widgets.
+- Preserve `ReSlotEngine`, refill ranking, offer sequencing, provider authentication, SSE refetch, and the golden path.
 - Persist and display real provider activity only. Never seed Telegram messages, voice transcripts, fake calls, or fake delivery state.
 - Keep voice recording disabled and never expose provider secrets, raw webhook payloads, actor tokens, or internal tool JSON to the browser.
 - Keep the Agent page's locked three-column structure: conversation list, transcript/action ledger, compact context widget.
@@ -27,7 +27,7 @@
 ### Domain and persistence
 
 - `src/domain/types.ts` — add normalized conversation, conversation-event, customer-note, and paused waitlist types.
-- `src/domain/store.ts` — add the new arrays to `ReviveState`.
+- `src/domain/store.ts` — add the new arrays to `ReSlotState`.
 - `src/server/mongo-store.ts` — persist new collections and create provider/event indexes.
 - `src/server/conversations.ts` — upsert conversations and append safe normalized events.
 - `src/server/operator-projections.ts` — create browser-safe calendar, conversation, customer, waitlist, and activity read models.
@@ -54,7 +54,7 @@
 - `src/web/pages/SettingsPage.tsx` — automation policies, provider health, and reset.
 - `src/web/App.tsx` — global shell, page routing, admin unlock, SSE invalidation, and authoritative refetch orchestration.
 - `src/web/styles.css` — Tailwind directives and the minimal base layer.
-- `tailwind.config.cjs` — REVIVE design tokens.
+- `tailwind.config.cjs` — Re-Slot design tokens.
 
 ---
 
@@ -67,11 +67,11 @@
 - Create: `src/server/conversations.test.ts`
 - Modify: `src/server/mongo-store.ts`
 - Modify: `src/server/mongo-store.integration.test.ts`
-- Modify: test fixtures that construct `ReviveState`
+- Modify: test fixtures that construct `ReSlotState`
 
 **Interfaces:**
 - Produces: `Conversation`, `ConversationEvent`, `CustomerNote`, `recordConversationEvent(store, input)`, and state arrays `conversations`, `conversationEvents`, `customerNotes`.
-- Consumes: existing `ReviveStore.transaction` semantics and provider/customer identifiers.
+- Consumes: existing `ReSlotStore.transaction` semantics and provider/customer identifiers.
 
 - [x] **Step 1: Write the failing normalized-conversation test**
 
@@ -307,7 +307,7 @@ git commit -m "feat: seed a realistic shop week"
 
 **Interfaces:**
 - Produces: `GET /api/v1/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD`, `/availability`, `/customers`, `/customers/:id`, `/conversations`, `/conversations/:id`, `/waitlist`, `/activity`; customer/note/waitlist mutations; and appointment create/reschedule/cancel operations.
-- Consumes: `findAvailableSlots`, `ReviveEngine`, the Task 1 state, and a bearer operator session.
+- Consumes: `findAvailableSlots`, `ReSlotEngine`, the Task 1 state, and a bearer operator session.
 
 - [x] **Step 1: Write failing safe-projection tests**
 
@@ -321,11 +321,11 @@ Expected: FAIL because the projections do not exist.
 
 - [x] **Step 3: Implement pure safe read models**
 
-Create projection functions that accept `ReviveState` and return explicit display objects. Mask a phone as `••• ••• 0101` and Telegram as `Linked account`; enrich references with names; sort newest lists descending and transcript events ascending; derive active offer/refill context; never spread raw domain documents into operator responses.
+Create projection functions that accept `ReSlotState` and return explicit display objects. Mask a phone as `••• ••• 0101` and Telegram as `Linked account`; enrich references with names; sort newest lists descending and transcript events ascending; derive active offer/refill context; never spread raw domain documents into operator responses.
 
 - [x] **Step 4: Write failing authenticated route tests**
 
-Assert operator endpoints return 401 without a bearer session and 200 after `POST /api/v1/admin/session`. Cover a 42-day maximum calendar range, availability for one service/date, booking/rescheduling/cancellation through `ReviveEngine`, stale-slot 409, customer consent update, note creation, waitlist pause/withdraw/note update, and SSE-visible domain events.
+Assert operator endpoints return 401 without a bearer session and 200 after `POST /api/v1/admin/session`. Cover a 42-day maximum calendar range, availability for one service/date, booking/rescheduling/cancellation through `ReSlotEngine`, stale-slot 409, customer consent update, note creation, waitlist pause/withdraw/note update, and SSE-visible domain events.
 
 - [x] **Step 5: Run route tests and verify RED**
 
@@ -369,7 +369,7 @@ git commit -m "feat: add front desk operator APIs"
 
 **Interfaces:**
 - Produces: `AppPage`, `AppShell`, `OperatorGate`, `Button`, `IconButton`, `SegmentedControl`, `Drawer`, `Modal`, `EmptyState`, `StatusDot`, and `cn`.
-- Consumes: the Task 4 typed `ReviveApi` and operator token.
+- Consumes: the Task 4 typed `ReSlotApi` and operator token.
 
 - [x] **Step 1: Write failing shell tests**
 
@@ -381,9 +381,9 @@ Run: `npm run test:run -- src/web/App.test.tsx`
 
 Expected: FAIL against the current decorative masthead/day board.
 
-- [x] **Step 3: Configure REVIVE Tailwind tokens**
+- [x] **Step 3: Configure Re-Slot Tailwind tokens**
 
-Extend Tailwind with `canvas`, `panel`, `ink`, `muted`, `line`, `revive`, `revive-dark`, `amber`, and `amber-soft`; use Instrument Sans and IBM Plex Mono; use restrained radii and a single subtle panel shadow. Add font links in `index.html`.
+Extend Tailwind with `canvas`, `panel`, `ink`, `muted`, `line`, `re-slot`, `re-slot-dark`, `amber`, and `amber-soft`; use Instrument Sans and IBM Plex Mono; use restrained radii and a single subtle panel shadow. Add font links in `index.html`.
 
 - [x] **Step 4: Replace the global stylesheet**
 
@@ -569,9 +569,9 @@ Reset the demo, cancel Josh, advance the worker, accept Sarah, advance the succe
 
 - [x] **Step 5: Deploy the branch to Railway**
 
-Deploy the existing one-service Railway project without printing secrets. Wait for a terminal successful deployment, then smoke `https://revive-production-57e8.up.railway.app/health`, the root shell, an SSE connection, and an authenticated operator session.
+Deploy the existing one-service Railway project without printing secrets. Wait for a terminal successful deployment, then smoke `https://re-slot-production-57e8.up.railway.app/health`, the root shell, an SSE connection, and an authenticated operator session.
 
-Execution note: the clean feature snapshot reached Railway `SUCCESS`; health, HTML assets, SSE, operator auth, calendar data, and public Chrome QA passed. ElevenLabs' live REVIVE agent and HT6 number assignment were verified. A real outbound Sarah call still requires the external `SARAH_PHONE` variable, and Josh/Alex must open their private Telegram links before the live-account walkthrough.
+Execution note: the clean feature snapshot reached Railway `SUCCESS`; health, HTML assets, SSE, operator auth, calendar data, and public Chrome QA passed. ElevenLabs' live Re-Slot agent and HT6 number assignment were verified. A real outbound Sarah call still requires the external `SARAH_PHONE` variable, and Josh/Alex must open their private Telegram links before the live-account walkthrough.
 
 - [x] **Step 6: Request review and finish the branch**
 

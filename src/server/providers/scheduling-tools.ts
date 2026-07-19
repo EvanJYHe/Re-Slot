@@ -174,7 +174,7 @@ export class SchedulingToolbox {
       type: "function",
       function: {
         name: "get_shop_info",
-        description: "Answer deterministic questions about REVIVE's hours, location, services, and scheduling policies.",
+        description: "Answer deterministic questions about Re-Slot's hours, location, services, and scheduling policies.",
         parameters: {
           type: "object",
           properties: { topic: { type: "string", enum: ["hours", "location", "services", "policies", "all"] } },
@@ -196,7 +196,7 @@ export class SchedulingToolbox {
       if (name === "get_shop_info") return this.getShopInfo(shopInfoSchema.parse(input));
       if (name === "get_availability") return this.getAvailability(availabilitySchema.parse(input));
       if (actor.customerId === undefined) {
-        return { type: "error", code: "UNLINKED_ACTOR", message: "The caller is not linked to a REVIVE customer." };
+        return { type: "error", code: "UNLINKED_ACTOR", message: "The caller is not linked to a Re-Slot customer." };
       }
       if (name === "get_my_appointments") {
         emptySchema.parse(input);
@@ -244,7 +244,7 @@ export class SchedulingToolbox {
       if (error instanceof z.ZodError) {
         return { type: "error", code: "INVALID_TOOL_ARGUMENTS", message: "The scheduling request was incomplete or invalid." };
       }
-      return { type: "error", code: "TOOL_ERROR", message: "REVIVE could not complete that scheduling operation." };
+      return { type: "error", code: "TOOL_ERROR", message: "Re-Slot could not complete that scheduling operation." };
     }
   }
 
@@ -302,7 +302,7 @@ export class SchedulingToolbox {
     const state = await this.store.read();
     return {
       topic: input.topic,
-      name: "REVIVE",
+      name: "Re-Slot",
       location: "Toronto, Ontario",
       timezone: state.settings.timezone,
       hours: "Monday to Friday, 10 AM to 8 PM",

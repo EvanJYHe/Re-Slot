@@ -282,13 +282,13 @@ function eventMessage(state: ReviveState, event: CalendarEvent): string {
     : customerName(state, eventCustomerId(state, event)!);
   switch (event.type) {
     case "appointment.booked": return `${name}'s appointment was booked.`;
-    case "appointment.cancelled": return `${name}'s appointment was cancelled; REVIVE opened refill work.`;
+    case "appointment.cancelled": return `${name}'s appointment was cancelled; Re-Slot opened refill work.`;
     case "appointment.rescheduled": return `${name}'s appointment was rescheduled.`;
     case "appointment.moved_earlier": return `${name} accepted an earlier appointment.`;
-    case "offer.created": return `REVIVE prepared an appointment offer for ${name}.`;
+    case "offer.created": return `Re-Slot prepared an appointment offer for ${name}.`;
     case "offer.delivered": {
       const channel = offer?.channel ?? event.data?.channel;
-      return `REVIVE delivered an appointment offer to ${name} via ${channel === "telegram" ? "Telegram" : "voice"}.`;
+      return `Re-Slot delivered an appointment offer to ${name} via ${channel === "telegram" ? "Telegram" : "voice"}.`;
     }
     case "offer.declined": return `${name} declined the appointment offer.`;
     case "offer.expired": return `${name}'s appointment offer expired.`;
@@ -297,7 +297,7 @@ function eventMessage(state: ReviveState, event: CalendarEvent): string {
     case "customer.updated": return `${name}'s preferences were updated.`;
     case "customer.note_added": return `A private note was added for ${name}.`;
     case "waitlist.updated": return `${name}'s waitlist entry was updated.`;
-    default: return appointment === undefined ? "REVIVE updated scheduling state." : `${name}'s appointment was updated.`;
+    default: return appointment === undefined ? "Re-Slot updated scheduling state." : `${name}'s appointment was updated.`;
   }
 }
 

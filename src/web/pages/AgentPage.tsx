@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DateTime } from "luxon";
 
-import { EmptyState, SegmentedControl, StatusDot, cn } from "../components/ui.js";
+import { EmptyState, SegmentedControl, cn } from "../components/ui.js";
 import type {
   ActivityItem,
   ConversationDetail,
@@ -46,7 +46,7 @@ function ConversationRow({ conversation, selected, onSelect }: {
         <time className="shrink-0 font-mono text-[9px] text-muted">{timestamp(conversation.updatedAt)}</time>
       </span>
       <span className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
-        {conversation.hasException ? <StatusDot tone="warning" /> : null}
+        {conversation.hasException ? <span className="text-[#8a611c]">Exception</span> : null}
         {titleCase(conversation.channel)} · {titleCase(conversation.direction)}
       </span>
       <span className="mt-1.5 block truncate text-xs text-muted">{conversation.preview}</span>
@@ -74,9 +74,11 @@ function MessageEvent({ event }: { event: ConversationEvent }) {
 function LedgerEvent({ event }: { event: ConversationEvent }) {
   const warning = event.kind === "error" || event.deliveryState === "failed";
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-revive border border-line bg-[#fafbf9] px-3 py-2.5 text-xs">
-      <span className={cn("h-1.5 w-1.5 justify-self-start rounded-full", warning ? "bg-amber" : "bg-revive")} />
-      <span className="justify-self-center text-center leading-5 text-muted">{event.text}</span>
+    <div className={cn(
+      "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-revive border bg-[#fafbf9] px-3 py-2.5 text-xs",
+      warning ? "border-[#e5d3ae]" : "border-line",
+    )}>
+      <span className={cn("justify-self-center text-center leading-5", warning ? "text-[#8a611c]" : "text-muted")}>{event.text}</span>
       <time className="justify-self-end font-mono text-[9px] text-muted">{timestamp(event.occurredAt)}</time>
     </div>
   );
@@ -87,7 +89,7 @@ function Transcript({ detail, loading }: { detail: ConversationDetail | undefine
   if (detail === undefined) {
     return (
       <EmptyState
-        detail="Select a real Telegram message or voice call to inspect what REVIVE did."
+        detail="Select a real Telegram message or voice call to inspect what Re-Slot did."
         title="No conversation selected"
       />
     );
@@ -134,7 +136,7 @@ function ContextPanel({ detail }: { detail: ConversationDetail | undefined }) {
           </section>
           <section className="p-4">
             <h4 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">Automation</h4>
-            <p className="mt-2 flex items-center gap-2 text-sm font-medium"><StatusDot tone="healthy" />{detail.context.automation.state}</p>
+            <p className="mt-2 text-sm font-medium">{detail.context.automation.state}</p>
             {detail.context.automation.offerStatus === undefined ? null : (
               <p className="mt-1.5 text-xs capitalize text-muted">Offer {detail.context.automation.offerStatus.replaceAll("_", " ")}</p>
             )}
@@ -167,7 +169,7 @@ function Inbox({ conversations, selectedId, detail, loadingDetail, search, onSea
   }, [conversations, search]);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1500px] overflow-hidden rounded-xl border border-line bg-panel shadow-panel lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+    <div aria-label="Agent inbox" className="mx-auto grid w-full max-w-[1500px] overflow-hidden rounded-[4px] border border-line bg-panel shadow-panel lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]" role="region">
       <section className="border-r border-line">
         <div className="border-b border-line p-4">
           <h3 className="text-sm font-semibold">Conversations</h3>
@@ -237,7 +239,7 @@ function WaitlistPanel({ api, entries, onEntriesChange }: {
   };
 
   return (
-    <section aria-label="Open waitlist" className="mx-auto max-w-5xl rounded-xl border border-line bg-panel shadow-panel">
+    <section aria-label="Open waitlist" className="mx-auto max-w-5xl rounded-[4px] border border-line bg-panel shadow-panel">
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
         <div>
           <h3 className="text-sm font-semibold">Open waitlist</h3>
@@ -330,18 +332,17 @@ function WaitlistPanel({ api, entries, onEntriesChange }: {
 
 function ActivityPanel({ activity }: { activity: ActivityItem[] }) {
   return (
-    <section aria-label="Scheduling activity" className="mx-auto max-w-4xl rounded-xl border border-line bg-panel shadow-panel">
+    <section aria-label="Scheduling activity" className="mx-auto max-w-4xl rounded-[4px] border border-line bg-panel shadow-panel">
       <div className="border-b border-line px-5 py-4">
         <h3 className="text-sm font-semibold">Scheduling activity</h3>
-        <p className="mt-1 text-xs text-muted">Plain-language changes committed by REVIVE and the front desk.</p>
+        <p className="mt-1 text-xs text-muted">Plain-language changes committed by Re-Slot and the front desk.</p>
       </div>
       {activity.length === 0 ? (
         <EmptyState detail="Committed scheduling changes will appear here." title="No activity yet" />
       ) : (
         <ol className="divide-y divide-line">
           {activity.map((item) => (
-            <li className="grid grid-cols-[8px_1fr_auto] items-start gap-3 px-5 py-4" key={item.id}>
-              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-revive" />
+            <li className="grid grid-cols-[1fr_auto] items-start gap-3 px-5 py-4" key={item.id}>
               <p className="text-sm leading-6">{item.message}</p>
               <time className="font-mono text-[10px] text-muted">{timestamp(item.occurredAt, "LLL d · h:mm a")}</time>
             </li>

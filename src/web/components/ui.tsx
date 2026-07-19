@@ -44,15 +44,6 @@ export function IconButton({ className, ...props }: ButtonHTMLAttributes<HTMLBut
   );
 }
 
-export function StatusDot({ tone = "healthy" }: { tone?: "healthy" | "warning" | "offline" }) {
-  return <span className={cn(
-    "inline-block h-1.5 w-1.5 rounded-full",
-    tone === "healthy" && "bg-revive",
-    tone === "warning" && "bg-amber",
-    tone === "offline" && "bg-[#a9b0aa]",
-  )} />;
-}
-
 export function EmptyState({ icon, title, detail, action }: {
   icon?: ReactNode;
   title: string;
@@ -129,7 +120,7 @@ export function Modal({ title, children, onClose }: {
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/25 px-4" onMouseDown={(event) => {
       if (event.currentTarget === event.target) onClose();
     }} role="presentation">
-      <section aria-label={title} aria-modal="true" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-line bg-panel shadow-panel" role="dialog">
+      <section aria-label={title} aria-modal="true" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[4px] border border-line bg-panel shadow-panel" role="dialog">
         <div className="flex h-16 items-center justify-between border-b border-line px-5">
           <h2 className="text-base font-semibold">{title}</h2>
           <IconButton aria-label={`Close ${title}`} onClick={onClose}><XIcon /></IconButton>

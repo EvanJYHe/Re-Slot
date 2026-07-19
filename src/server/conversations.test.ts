@@ -17,9 +17,9 @@ function store() {
 
 describe("recordConversationEvent", () => {
   it("upserts one conversation and stores its real turns in chronological order", async () => {
-    const reviveStore = store();
+    const reSlotStore = store();
 
-    const first = await recordConversationEvent(reviveStore, {
+    const first = await recordConversationEvent(reSlotStore, {
       customerId: "alex",
       channel: "telegram",
       conversationDirection: "inbound",
@@ -31,7 +31,7 @@ describe("recordConversationEvent", () => {
       text: "Is the 6 PM opening still available?",
       occurredAt: now,
     });
-    const second = await recordConversationEvent(reviveStore, {
+    const second = await recordConversationEvent(reSlotStore, {
       customerId: "alex",
       channel: "telegram",
       conversationDirection: "inbound",
@@ -45,7 +45,7 @@ describe("recordConversationEvent", () => {
       occurredAt: later,
     });
 
-    const snapshot = await reviveStore.read();
+    const snapshot = await reSlotStore.read();
     expect(first).toEqual({ status: "recorded", conversationId: second.conversationId });
     expect(snapshot.conversations).toEqual([
       expect.objectContaining({
@@ -82,7 +82,7 @@ describe("recordConversationEvent", () => {
   });
 
   it("deduplicates provider events within a conversation", async () => {
-    const reviveStore = store();
+    const reSlotStore = store();
     const input = {
       customerId: "alex",
       channel: "telegram" as const,
@@ -96,17 +96,17 @@ describe("recordConversationEvent", () => {
       occurredAt: now,
     };
 
-    await recordConversationEvent(reviveStore, input);
-    const duplicate = await recordConversationEvent(reviveStore, input);
+    await recordConversationEvent(reSlotStore, input);
+    const duplicate = await recordConversationEvent(reSlotStore, input);
 
     expect(duplicate.status).toBe("duplicate");
-    expect((await reviveStore.read()).conversationEvents).toHaveLength(1);
+    expect((await reSlotStore.read()).conversationEvents).toHaveLength(1);
   });
 
   it("stores only normalized scalar metadata and trims safe text", async () => {
-    const reviveStore = store();
+    const reSlotStore = store();
 
-    await recordConversationEvent(reviveStore, {
+    await recordConversationEvent(reSlotStore, {
       customerId: "alex",
       channel: "voice",
       conversationDirection: "outbound",
@@ -122,7 +122,7 @@ describe("recordConversationEvent", () => {
       occurredAt: later,
     });
 
-    const snapshot = await reviveStore.read();
+    const snapshot = await reSlotStore.read();
     expect(snapshot.conversations[0]).toMatchObject({
       channel: "voice",
       direction: "outbound",

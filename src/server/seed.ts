@@ -28,7 +28,7 @@ interface CreateDemoStateOptions {
 
 export function getDemoDate(now: string, timezone: string): string {
   let date = DateTime.fromISO(now).setZone(timezone).startOf("day");
-  if (!date.isValid) throw new Error("Cannot seed REVIVE from an invalid date.");
+  if (!date.isValid) throw new Error("Cannot seed Re-Slot from an invalid date.");
   while (date.weekday > 5) date = date.plus({ days: 1 });
   return date.toISODate()!;
 }
@@ -446,9 +446,9 @@ function createAgentConversationSeed(input: {
       attemptedCustomerIds: ["ava"],
       currentOfferId: "demo-offer-ava",
       timeline: [
-        { type: "opening_created", at: stamp(priorMonday, 13, 2), message: "Liam cancelled. REVIVE started looking for the best match." },
-        { type: "offer_created", at: avaOfferTime, message: "REVIVE prepared an earlier-slot offer for Ava.", customerId: "ava", offerId: "demo-offer-ava" },
-        { type: "offer_delivered", at: plusMinutes(avaOfferTime, 1), message: "REVIVE reached Ava by voice.", customerId: "ava", offerId: "demo-offer-ava" },
+        { type: "opening_created", at: stamp(priorMonday, 13, 2), message: "Liam cancelled. Re-Slot started looking for the best match." },
+        { type: "offer_created", at: avaOfferTime, message: "Re-Slot prepared an earlier-slot offer for Ava.", customerId: "ava", offerId: "demo-offer-ava" },
+        { type: "offer_delivered", at: plusMinutes(avaOfferTime, 1), message: "Re-Slot reached Ava by voice.", customerId: "ava", offerId: "demo-offer-ava" },
         { type: "appointment_moved", at: plusMinutes(avaOfferTime, 3), message: "Ava accepted and moved into the 5 PM opening.", customerId: "ava", offerId: "demo-offer-ava" },
       ],
       version: 4,
@@ -468,8 +468,8 @@ function createAgentConversationSeed(input: {
       currentOfferId: "demo-offer-mateo",
       timeline: [
         { type: "opening_created", at: plusMinutes(avaOfferTime, 3), message: "Ava's move opened the 6 PM appointment." },
-        { type: "offer_created", at: mateoOfferTime, message: "REVIVE prepared the new opening for Mateo.", customerId: "mateo", offerId: "demo-offer-mateo" },
-        { type: "offer_delivered", at: plusMinutes(mateoOfferTime, 1), message: "REVIVE reached Mateo on Telegram.", customerId: "mateo", offerId: "demo-offer-mateo" },
+        { type: "offer_created", at: mateoOfferTime, message: "Re-Slot prepared the new opening for Mateo.", customerId: "mateo", offerId: "demo-offer-mateo" },
+        { type: "offer_delivered", at: plusMinutes(mateoOfferTime, 1), message: "Re-Slot reached Mateo on Telegram.", customerId: "mateo", offerId: "demo-offer-mateo" },
         { type: "opening_filled", at: plusMinutes(mateoOfferTime, 3), message: "Mateo accepted and filled the 6 PM opening.", customerId: "mateo", offerId: "demo-offer-mateo" },
       ],
       version: 4,
@@ -522,7 +522,7 @@ function createAgentConversationSeed(input: {
       direction: "inbound",
       providerConversationId: "demo-telegram-liam",
       state: "completed",
-      preview: "Done — your appointment is cancelled, and REVIVE is filling the opening.",
+      preview: "Done — your appointment is cancelled, and Re-Slot is filling the opening.",
       appointmentId: liamAppointment.id,
       createdAt: stamp(priorMonday, 13, 0),
       updatedAt: stamp(priorMonday, 13, 2),
@@ -581,7 +581,7 @@ function createAgentConversationSeed(input: {
 
   const conversationEvents: ConversationEvent[] = [
     { id: "demo-event-liam-1", conversationId: "conversation-demo-liam", kind: "message", direction: "inbound", speaker: "customer", text: "Hey — I need to cancel my 5 PM haircut with Jeremy.", appointmentId: liamAppointment.id, occurredAt: stamp(priorMonday, 13, 0) },
-    { id: "demo-event-liam-2", conversationId: "conversation-demo-liam", kind: "message", direction: "outbound", speaker: "agent", text: "Done — your appointment is cancelled, and REVIVE is already working to fill the opening.", deliveryState: "delivered", appointmentId: liamAppointment.id, refillJobId: "demo-job-liam-opening", occurredAt: stamp(priorMonday, 13, 1) },
+    { id: "demo-event-liam-2", conversationId: "conversation-demo-liam", kind: "message", direction: "outbound", speaker: "agent", text: "Done — your appointment is cancelled, and Re-Slot is already working to fill the opening.", deliveryState: "delivered", appointmentId: liamAppointment.id, refillJobId: "demo-job-liam-opening", occurredAt: stamp(priorMonday, 13, 1) },
     { id: "demo-event-liam-3", conversationId: "conversation-demo-liam", kind: "action", speaker: "system", text: "Appointment cancelled · refill started", appointmentId: liamAppointment.id, refillJobId: "demo-job-liam-opening", occurredAt: stamp(priorMonday, 13, 2) },
 
     { id: "demo-event-ava-1", conversationId: "conversation-demo-ava", kind: "transcript", direction: "outbound", speaker: "agent", text: "Hi Ava — Jeremy has a 5 PM haircut available. Would you like to move your 6 PM appointment earlier?", offerId: "demo-offer-ava", refillJobId: "demo-job-liam-opening", occurredAt: avaOfferTime, metadata: { timeInCallSeconds: 2 } },

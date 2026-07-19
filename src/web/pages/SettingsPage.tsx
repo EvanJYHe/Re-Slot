@@ -92,12 +92,12 @@ export function SettingsPage({ api, refreshKey, onReset }: SettingsPageProps) {
       <div className="flex items-start justify-between gap-4 border-b border-line bg-panel px-5 py-4 lg:px-8">
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.02em]">Settings</h2>
-          <p className="mt-1 text-sm text-muted">The small set of policies that change REVIVE's scheduling behavior.</p>
+          <p className="mt-1 text-sm text-muted">The small set of policies that change Re-Slot's scheduling behavior.</p>
         </div>
         {status === undefined ? null : <span className="mt-1 font-mono text-[10px] text-muted">{status}</span>}
       </div>
       <div className="mx-auto max-w-5xl space-y-5 p-5 lg:p-8">
-        <section className="rounded-xl border border-line bg-panel shadow-panel">
+        <section className="rounded-[4px] border border-line bg-panel shadow-panel">
           <div className="border-b border-line px-5 py-4">
             <h3 className="text-sm font-semibold">Automation</h3>
             <p className="mt-1 text-xs text-muted">Each change is applied to the deterministic scheduling engine.</p>
@@ -190,7 +190,7 @@ export function SettingsPage({ api, refreshKey, onReset }: SettingsPageProps) {
           )}
         </section>
 
-        <section className="rounded-xl border border-line bg-panel px-5 py-4 shadow-panel">
+        <section className="rounded-[4px] border border-line bg-panel px-5 py-4 shadow-panel">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-semibold">Demo week</h3>

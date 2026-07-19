@@ -17,13 +17,13 @@ async function main(): Promise<void> {
   await runtime.app.listen({ host: "127.0.0.1", port: config.port });
   await runtime.configureWebhooks();
   runtime.startWorker();
-  runtime.app.log.info({ port: config.port, store: runtime.storeKind }, "REVIVE is ready");
+  runtime.app.log.info({ port: config.port, store: runtime.storeKind }, "Re-Slot is ready");
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    runtime.app.log.info({ signal }, "REVIVE is shutting down");
+    runtime.app.log.info({ signal }, "Re-Slot is shutting down");
     await runtime.close();
   };
   process.once("SIGINT", () => void shutdown("SIGINT"));
@@ -34,7 +34,7 @@ void main().catch((error: unknown) => {
   process.stderr.write(`${JSON.stringify({
     level: "fatal",
     service: "revive",
-    message: "REVIVE failed to start",
+    message: "Re-Slot failed to start",
     error: error instanceof Error ? error.name : "StartupError",
   })}\n`);
   process.exitCode = 1;

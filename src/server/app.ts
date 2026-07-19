@@ -155,7 +155,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       return;
     }
     request.log.error({ err: error }, "request failed");
-    void reply.status(500).send({ error: "internal_error", message: "REVIVE could not complete the request." });
+    void reply.status(500).send({ error: "internal_error", message: "Re-Slot could not complete the request." });
   });
 
   app.get("/health", async () => ({
@@ -283,7 +283,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       range: { start, end },
       timezone: state.settings.timezone,
       generatedAt: clock(),
-      shop: { name: "REVIVE", location: "Toronto, ON" },
+      shop: { name: "Re-Slot", location: "Toronto, ON" },
       businessHours: { start: "10:00", end: "20:00" },
       barbers: state.barbers,
       services: state.services,

@@ -30,7 +30,7 @@ const config: AppConfig = {
   sarahPhone: "+14165550101",
 };
 
-describe("REVIVE Fastify API", () => {
+describe("Re-Slot Fastify API", () => {
   let store: InMemoryStore;
   let engine: ReviveEngine;
   let app: Awaited<ReturnType<typeof buildServer>>;

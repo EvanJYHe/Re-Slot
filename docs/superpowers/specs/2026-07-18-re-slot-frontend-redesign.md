@@ -1,12 +1,12 @@
-# REVIVE front-desk workspace redesign
+# Re-Slot front-desk workspace redesign
 
 **Status:** Approved and implemented
-**Audience:** A front-desk owner supervising REVIVE
+**Audience:** A front-desk owner supervising Re-Slot
 **Reference:** Visual companion session `64389-1784414982`, locked three-column Agent workspace
 
 ## Objective
 
-Replace the current decorative chair board with a calm, familiar front-desk workspace that makes REVIVE's backend work understandable. The interface must let an owner schedule customers, watch real Telegram and voice interactions, inspect waitlist decisions, and intervene when necessary without turning REVIVE into a broad salon-management product.
+Replace the current decorative chair board with a calm, familiar front-desk workspace that makes Re-Slot's backend work understandable. The interface must let an owner schedule customers, watch real Telegram and voice interactions, inspect waitlist decisions, and intervene when necessary without turning Re-Slot into a broad salon-management product.
 
 The scheduling engine, MongoDB store, refill worker, Telegram integration, Backboard integration, ElevenLabs integration, and Railway deployment remain the product's core. This project rewrites the web application and adds the smallest server interfaces needed by the new views. It does not rewrite the deterministic scheduling engine.
 
@@ -15,7 +15,7 @@ The scheduling engine, MongoDB store, refill worker, Telegram integration, Backb
 1. **Calendar first.** The schedule is the default page and the primary source of truth.
 2. **Ordinary interface, exceptional backend.** The UI should feel as immediately legible as Calendly or LettuceMeet rather than advertise its visual style.
 3. **Real activity only.** Telegram messages, voice transcripts, delivery states, and scheduling actions must come from persisted provider and domain events. No simulated chat panels.
-4. **Autonomous by default, interruptible by exception.** REVIVE continues work without approval unless a deterministic rule requires consent or an operator pauses it.
+4. **Autonomous by default, interruptible by exception.** Re-Slot continues work without approval unless a deterministic rule requires consent or an operator pauses it.
 5. **Progressive disclosure.** Each page shows only the information needed for its job; detailed records open on selection.
 6. **No duplicate state.** SSE signals a change and the client refetches authoritative API state. Scheduling mutations always pass through the domain engine.
 7. **Tailwind first.** Layout, spacing, typography, responsive behavior, and interaction states are composed with Tailwind utilities. Custom CSS is reserved for global tokens, font setup, and calendar geometry that depends on runtime values.
@@ -29,7 +29,7 @@ The application has four persistent top-level destinations:
 - **Customers:** lightweight customer records, contact identity, consent, appointments, waitlist state, and private notes.
 - **Settings:** scheduling automation policies, provider connection status, and demo reset.
 
-The global shell contains only the REVIVE wordmark, these four destinations, and a compact live-connection indicator. Page-specific controls stay inside their page. There is no marketing masthead, dashboard introduction, persistent legend, footer, analytics summary, or global command centre.
+The global shell contains only the Re-Slot wordmark, these four destinations, and a compact live-connection indicator. Page-specific controls stay inside their page. There is no marketing masthead, dashboard introduction, persistent legend, footer, analytics summary, or global command centre.
 
 ## Visual direction
 
@@ -43,7 +43,7 @@ The global shell contains only the REVIVE wordmark, these four destinations, and
 ### Styling architecture
 
 - Tailwind CSS 3.4 is the primary styling system for the rewrite. The React markup should use utilities directly and extract small reusable components only where the same interface pattern recurs.
-- `tailwind.config.cjs` defines the REVIVE palette, fonts, radii, shadows, and shared sizing tokens so visual decisions stay consistent without creating a second class system.
+- `tailwind.config.cjs` defines the Re-Slot palette, fonts, radii, shadows, and shared sizing tokens so visual decisions stay consistent without creating a second class system.
 - `src/web/styles.css` is reduced to Tailwind directives, font declarations, root variables, minimal browser normalization, and the few calendar-positioning primitives that need runtime CSS custom properties.
 - The existing large semantic stylesheet and one-off decorative classes are removed as their screens are replaced. No component library or parallel CSS-in-JS layer is introduced.
 - A tiny local class-name helper may be used for conditional Tailwind states; it must not become a styling abstraction of its own.
@@ -74,7 +74,7 @@ The calendar operates from 10 AM to 8 PM in the shop timezone. Empty time remain
 
 A confirmed appointment shows time, customer, and service. Barber name appears only when the current view does not already communicate it. Selecting a card opens a compact appointment drawer with customer link, contact channel, status, history, and edit/cancel actions.
 
-An active refill occupies the real open interval and uses pale amber. Its label is plain language such as `REVIVE is finding a match` or `Waiting for Sarah`. Selecting it opens the refill timeline and a link to the related Agent conversation.
+An active refill occupies the real open interval and uses pale amber. Its label is plain language such as `Re-Slot is finding a match` or `Waiting for Sarah`. Selecting it opens the refill timeline and a link to the related Agent conversation.
 
 Cancelled appointments do not remain as full calendar cards. Their cancellation remains visible in the appointment history and Agent action ledger. This keeps the schedule focused on current capacity.
 
@@ -92,7 +92,7 @@ The locked Agent design uses three columns because each has one distinct purpose
 2. **Conversation and action ledger:** the selected message transcript or voice transcript, interleaved with scheduling confirmations and committed domain actions.
 3. **Compact context widget:** the selected customer, affected appointment or offer, automation state, and one private-note entry point.
 
-The right context widget is intentionally retained. It prevents the owner from leaving the conversation to understand who the person is and which appointment REVIVE changed. It must remain compact and cannot become a general customer profile.
+The right context widget is intentionally retained. It prevents the owner from leaving the conversation to understand who the person is and which appointment Re-Slot changed. It must remain compact and cannot become a general customer profile.
 
 ### Agent subsections
 
@@ -107,7 +107,7 @@ The right context widget is intentionally retained. It prevents the owner from l
 - Tool calls are not shown as raw JSON. A successful operation becomes a human-readable event such as `Sarah moved from 6 PM to 5 PM`.
 - Provider errors appear inline with a retry or review state. They are not silently converted into successful-looking messages.
 - Internal identifiers, authentication tokens, provider secrets, and raw webhook payloads never reach the browser.
-- REVIVE remains in control by default. `Pause automation` and `Take over` live in a small overflow menu. A manual composer appears only after takeover.
+- Re-Slot remains in control by default. `Pause automation` and `Take over` live in a small overflow menu. A manual composer appears only after takeover.
 
 ### Waitlist controls
 

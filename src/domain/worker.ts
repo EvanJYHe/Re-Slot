@@ -144,7 +144,7 @@ export class RefillWorker {
         job.timeline.push({
           type: "offer_expired",
           at: nowIso,
-          message: `The offer to ${offer.customerId} expired, so REVIVE continued the search.`,
+          message: `The offer to ${offer.customerId} expired, so Re-Slot continued the search.`,
           customerId: offer.customerId,
           offerId: offer.id,
         });
@@ -190,7 +190,7 @@ export class RefillWorker {
       job.timeline.push({
         type: "search_exhausted",
         at: nowIso,
-        message: "REVIVE reached the end of the eligible contact list.",
+        message: "Re-Slot reached the end of the eligible contact list.",
       });
       state.events.push({
         id: randomUUID(),
@@ -264,7 +264,7 @@ export class RefillWorker {
       job.timeline.push({
         type: "offer_created",
         at: nowIso,
-        message: `REVIVE prepared an offer for ${candidate.customerId}.`,
+        message: `Re-Slot prepared an offer for ${candidate.customerId}.`,
         customerId: candidate.customerId,
         offerId: offer.id,
       });
@@ -307,7 +307,7 @@ export class RefillWorker {
         job.timeline.push({
           type: "offer_delivered",
           at: nowIso,
-          message: `REVIVE is waiting for ${offer.customerId}.`,
+          message: `Re-Slot is waiting for ${offer.customerId}.`,
           customerId: offer.customerId,
           offerId: offer.id,
         });
@@ -346,7 +346,7 @@ export class RefillWorker {
         job.timeline.push({
           type: "delivery_failed",
           at: nowIso,
-          message: `Delivery to ${offer.customerId} failed after ${attempts} attempts. REVIVE will continue.`,
+          message: `Delivery to ${offer.customerId} failed after ${attempts} attempts. Re-Slot will continue.`,
           customerId: offer.customerId,
           offerId: offer.id,
         });

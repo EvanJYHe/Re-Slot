@@ -26,7 +26,7 @@
 - Modify: `src/web/types.ts`
 
 **Interfaces:**
-- Consumes: `ReviveState.customers`, `appointments`, `waitlist`, `barbers`, and `services`
+- Consumes: `ReSlotState.customers`, `appointments`, `waitlist`, `barbers`, and `services`
 - Produces: enriched `CustomerSummary` fields and `CustomerDetail.relationship`
 
 - [ ] **Step 1: Write failing projection expectations**

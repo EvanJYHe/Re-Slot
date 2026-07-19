@@ -19,7 +19,7 @@ function linkToken(customerId) {
     .update(`telegram-link:${customerId}`)
     .digest("base64url")
     .slice(0, 16);
-  return `revive_${customerId}_${signature}`;
+  return `re-slot_${customerId}_${signature}`;
 }
 
 const username = result.result.username;

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Turn the Customers page from a collection of raw records into a clear demo of the scheduling intelligence REVIVE can use. Staff should immediately understand who is already booked, who is actively waiting for a specific opening, who is available for future outreach, and why a recurring customer is a credible match.
+Turn the Customers page from a collection of raw records into a clear demo of the scheduling intelligence Re-Slot can use. Staff should immediately understand who is already booked, who is actively waiting for a specific opening, who is available for future outreach, and why a recurring customer is a credible match.
 
 ## Relationship model
 
@@ -41,7 +41,7 @@ Historical appointments will live before the demo week and avoid all current cal
 
 ## UI design
 
-The page heading becomes “Customer intelligence” and explains that REVIVE ranks real demand and recurring relationships when openings appear.
+The page heading becomes “Customer intelligence” and explains that Re-Slot ranks real demand and recurring relationships when openings appear.
 
 A four-part funnel across the top shows:
 

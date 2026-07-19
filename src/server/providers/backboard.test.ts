@@ -106,7 +106,7 @@ describe("BackboardClient", () => {
       fetchImpl: async () => new Response(JSON.stringify({
         status: "COMPLETED",
         thread_id: "thread-live-response",
-        content: "Hello from REVIVE.",
+        content: "Hello from Re-Slot.",
         tool_calls: null,
       }), {
         status: 200,
@@ -120,7 +120,7 @@ describe("BackboardClient", () => {
       tools: [],
       executeTool: async () => ({}),
     })).resolves.toEqual({
-      content: "Hello from REVIVE.",
+      content: "Hello from Re-Slot.",
       threadId: "thread-live-response",
     });
   });

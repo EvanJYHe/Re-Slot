@@ -59,7 +59,10 @@ describe("SettingsPage", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Automation" })).toBeInTheDocument();
+    const automation = screen.getByRole("heading", { name: "Automation" });
+    expect(automation).toBeInTheDocument();
+    expect(automation.closest("section")).toHaveClass("rounded-[4px]");
+    expect(screen.getByRole("heading", { name: "Demo week" }).closest("section")).toHaveClass("rounded-[4px]");
     expect(screen.queryByRole("heading", { name: "Connections" })).not.toBeInTheDocument();
     for (const label of [
       "Automatic vacancy refill",
@@ -73,6 +76,7 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("spinbutton", { name: "Maximum appointment moves" })).toHaveValue(3);
     expect(screen.getByRole("spinbutton", { name: "Maximum discount percent" })).toHaveValue(15);
     expect(screen.getByRole("combobox", { name: "Offer expiry" })).toHaveValue("120");
+    expect(screen.getByRole("combobox", { name: "Offer expiry" })).toHaveClass("rounded-revive");
     expect(screen.queryByText(/prompt editor|voice laboratory|analytics|API key/i)).not.toBeInTheDocument();
   });
 

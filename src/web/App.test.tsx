@@ -26,7 +26,7 @@ function calendar(date = "2026-07-20"): CalendarResponse {
     timezone: "America/Toronto",
     generatedAt: "2026-07-18T16:00:00.000Z",
     demoDate: "2026-07-20",
-    shop: { name: "REVIVE", location: "Toronto, ON" },
+    shop: { name: "Re-Slot", location: "Toronto, ON" },
     businessHours: { start: "10:00", end: "20:00" },
     barbers: [
       { id: "jeremy", name: "Jeremy", serviceIds: ["haircut"], weeklyHours: {} },
@@ -99,7 +99,7 @@ describe("DashboardApp shell", () => {
     const client = api();
     render(<DashboardApp api={client} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
 
-    expect(await screen.findByRole("heading", { name: "REVIVE" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Re-Slot" })).toBeInTheDocument();
     for (const destination of ["Calendar", "Agent", "Customers", "Settings"]) {
       expect(screen.getByRole("button", { name: destination })).toBeInTheDocument();
     }

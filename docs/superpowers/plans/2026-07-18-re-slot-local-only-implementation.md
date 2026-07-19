@@ -1,8 +1,8 @@
-# REVIVE Local-Only Simplification Implementation Plan
+# Re-Slot Local-Only Simplification Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove operator PIN friction and all Railway hosting so REVIVE runs as a trusted loopback-only hackathon demo.
+**Goal:** Remove operator PIN friction and all Railway hosting so Re-Slot runs as a trusted loopback-only hackathon demo.
 
 **Architecture:** Keep the deterministic engine, Atlas store, provider integrations, webhook authentication, SSE, and four-page Tailwind UI. Delete only the human operator session boundary, make the typed browser API tokenless, bind Fastify to `127.0.0.1`, and remove hosted infrastructure/configuration.
 
@@ -15,7 +15,7 @@
 - Bind the API to `127.0.0.1`; unauthenticated operator routes must not listen on all interfaces.
 - Keep MongoDB Atlas and all seeded/demo data intact.
 - Do not delete the Telegram bot, Backboard assistant, ElevenLabs agent, Twilio number, or Atlas project.
-- Remove the Railway `revive` project only after an exact service/resource read-back.
+- Remove the Railway `re-slot` project only after an exact service/resource read-back.
 - Preserve unrelated uncommitted ElevenLabs readiness and Backboard work; stage only local-only simplification hunks.
 
 ---
@@ -32,7 +32,7 @@
 
 **Interfaces:**
 - Produces: tokenless operator routes and `AppConfig.voiceActorSecret: string`.
-- Consumes: existing Zod request schemas, `ReviveEngine`, provider webhook validation, and SSE.
+- Consumes: existing Zod request schemas, `ReSlotEngine`, provider webhook validation, and SSE.
 
 - [x] **Step 1: Write failing API tests for local operator access**
 
@@ -84,7 +84,7 @@ In `config.ts`, delete `DEMO_ADMIN_PIN` and `ADMIN_SESSION_SECRET`. Add:
 ```ts
 const providerSecret = parsed.ELEVENLABS_WEBHOOK_SECRET ?? parsed.TELEGRAM_WEBHOOK_SECRET;
 const voiceActorSecret = providerSecret ?? createHash("sha256")
-  .update("revive-local-voice-actor")
+  .update("re-slot-local-voice-actor")
   .digest("hex");
 ```
 
@@ -125,7 +125,7 @@ git commit -m "feat: make operator API local-only"
 
 **Interfaces:**
 - Consumes: tokenless operator routes from Task 1.
-- Produces: `ReviveApi` methods with no token arguments and four immediately accessible pages.
+- Produces: `ReSlotApi` methods with no token arguments and four immediately accessible pages.
 
 - [x] **Step 1: Write failing shell tests**
 
@@ -167,7 +167,7 @@ Expected: FAIL because the method signatures require tokens and emit bearer head
 
 - [x] **Step 5: Implement tokenless browser interfaces**
 
-Remove token parameters from every `ReviveApi` operator method and remove `authorization()`. Delete `createAdminSession`. Make requests use only content-type headers when a JSON body exists.
+Remove token parameters from every `ReSlotApi` operator method and remove `authorization()`. Delete `createAdminSession`. Make requests use only content-type headers when a JSON body exists.
 
 Delete `OperatorGate`, `tokenStorageKey`, `storedOperatorToken`, `initialOperatorToken`, `operatorToken`, and `calendarUnlockRequested` from `App.tsx`. Render pages directly:
 
@@ -244,7 +244,7 @@ Expected: PASS; `.env` remains ignored and contains no operator-auth keys.
 
 ```bash
 git add package.json vite.config.ts .env.example README.md railway.json
-git commit -m "chore: make revive localhost-only"
+git commit -m "chore: make re-slot localhost-only"
 ```
 
 ### Task 4: Tear down hosted infrastructure
@@ -253,7 +253,7 @@ git commit -m "chore: make revive localhost-only"
 
 **Interfaces:**
 - Consumes: Railway project/service IDs and the local Telegram token.
-- Produces: no active Railway `revive` project and no Telegram webhook pointing at its old domain.
+- Produces: no active Railway `re-slot` project and no Telegram webhook pointing at its old domain.
 
 - [x] **Step 1: Re-read the exact destructive target**
 
@@ -273,18 +273,18 @@ Run `railway unlink --yes` if supported; otherwise remove only the CLI link thro
 
 - [ ] **Step 4: Remove the dead Telegram webhook target**
 
-Read `getWebhookInfo` without printing the token. If the URL equals `https://revive-production-57e8.up.railway.app/webhooks/telegram`, call Telegram `deleteWebhook` with `drop_pending_updates=false`. Do not delete the bot.
+Read `getWebhookInfo` without printing the token. If the URL equals `https://re-slot-production-57e8.up.railway.app/webhooks/telegram`, call Telegram `deleteWebhook` with `drop_pending_updates=false`. Do not delete the bot.
 
 - [ ] **Step 5: Verify teardown**
 
-Railway project discovery must show the project deleted or absent, the former public URL must stop returning REVIVE, and Telegram webhook info must have an empty URL. Report Railway's deletion/recovery semantics exactly.
+Railway project discovery must show the project deleted or absent, the former public URL must stop returning Re-Slot, and Telegram webhook info must have an empty URL. Report Railway's deletion/recovery semantics exactly.
 
 Execution note (2026-07-18): Railway accepted deletion for project `e2a09144-46d4-4afe-b29d-c3298edc1dad`, set its `deletedAt` marker, the former public URL returns 404, and the repository is unlinked. Telegram's control API timed out from the local machine, and Railway SSH stopped at host-key verification before executing the sanitized cleanup script. No Telegram bot or credential was changed; webhook removal/empty-URL verification remains explicitly unconfirmed, as accepted by the user.
 
 ### Task 5: Full local acceptance
 
 **Files:**
-- Modify: `docs/superpowers/plans/2026-07-18-revive-local-only-implementation.md`
+- Modify: `docs/superpowers/plans/2026-07-18-re-slot-local-only-implementation.md`
 
 **Interfaces:**
 - Consumes: all prior tasks.
@@ -298,7 +298,7 @@ Expected: every Vitest file, TypeScript, Vite, and tsup pass.
 
 - [x] **Step 2: Restart the local server**
 
-Stop the existing REVIVE session, run `npm run local`, and verify `/health`, `/`, Atlas-backed calendar data, and SSE at `http://127.0.0.1:3100`.
+Stop the existing Re-Slot session, run `npm run local`, and verify `/health`, `/`, Atlas-backed calendar data, and SSE at `http://127.0.0.1:3100`.
 
 - [x] **Step 3: Perform browser-harness acceptance**
 

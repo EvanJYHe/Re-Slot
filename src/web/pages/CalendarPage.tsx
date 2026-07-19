@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 
 import { ReviveApiError } from "../api.js";
 import { MiniMonth } from "../components/MiniMonth.js";
-import { Button, Drawer, IconButton, Modal, SegmentedControl, StatusDot, cn } from "../components/ui.js";
+import { Button, Drawer, IconButton, Modal, SegmentedControl, cn } from "../components/ui.js";
 import { movePeriod, periodLabel, periodRange, type CalendarView } from "../lib/dates.js";
 import type {
   ActiveRefill,
@@ -135,7 +135,7 @@ function RefillCard({ refill, timezone, onOpen, style }: {
       style={style}
       type="button"
     >
-      <span className="flex items-center gap-1.5 font-medium text-white/85"><span className="h-1.5 w-1.5 rounded-full bg-white" />Open chair</span>
+      <span className="font-medium text-white/85">Open chair</span>
       <strong className="mt-1 block truncate font-semibold text-white">{refill.customerState.replace(/\.$/, "")}</strong>
       <span className="mt-0.5 block truncate text-white/85">{timeLabel(refill.slotStartAt, timezone)} · {refill.barberName}</span>
     </button>
@@ -385,7 +385,7 @@ function MonthCalendar({ calendar, anchorDate, dates, barberFilter, onSelectDate
             >
               <span className="flex items-center justify-between text-xs font-medium">
                 {value.day}
-                {refills.length > 0 ? <StatusDot tone="warning" /> : null}
+                {refills.length > 0 ? <span className="text-[9px] uppercase tracking-[0.08em] text-[#9a6413]">Open</span> : null}
               </span>
               <span className="mt-5 block text-xs text-muted">{countLabel}</span>
               <span className="mt-2 block h-1 overflow-hidden rounded-full bg-[#edf0ec]">
@@ -416,7 +416,6 @@ function RefillDrawer({ refill, timezone, onClose }: {
           <li className="grid grid-cols-[74px_1fr] gap-3" key={`${event.at}-${index}`}>
             <time className="pt-0.5 font-mono text-[10px] text-muted">{DateTime.fromISO(event.at).setZone(timezone).toFormat("h:mm:ss a")}</time>
             <div className="relative border-l border-line pb-6 pl-4 text-sm leading-6">
-              <span className="absolute -left-1 top-1.5 h-2 w-2 rounded-full bg-revive" />
               {event.message}
             </div>
           </li>

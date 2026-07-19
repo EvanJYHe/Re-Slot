@@ -1,6 +1,6 @@
-# REVIVE
+# Re-Slot
 
-REVIVE is a deterministic scheduling and cancellation-refill operator for a Toronto barbershop. Customers talk through real Telegram and phone channels; Backboard and ElevenLabs interpret the conversation, while a TypeScript state machine is the only code allowed to mutate appointments.
+Re-Slot is a deterministic scheduling and cancellation-refill operator for a Toronto barbershop. Customers talk through real Telegram and phone channels; Backboard and ElevenLabs interpret the conversation, while a TypeScript state machine is the only code allowed to mutate appointments.
 
 The demo path is deliberately concrete: Josh cancels a 5 PM haircut, Sarah accepts 5 PM by voice and frees 6 PM, then Alex accepts 6 PM through Telegram. The live calendar updates from authoritative state over SSE.
 
@@ -9,9 +9,9 @@ The demo path is deliberately concrete: Josh cancels a 5 PM haircut, Sarah accep
 Requirements: Node.js 22+ and npm. MongoDB Atlas and provider credentials are optional for normal UI/domain development.
 
 ```bash
-git clone https://github.com/ManagementMO/REVIVE.git
-cd REVIVE
-git switch --track origin/agent/revive-local-only
+git clone https://github.com/ManagementMO/Re-Slot.git
+cd Re-Slot
+git switch --track origin/agent/re-slot-local-only
 npm install
 cp .env.example .env
 npm run dev
@@ -32,7 +32,7 @@ Open `http://127.0.0.1:3100`. Fastify serves the built React assets and listens 
 Create a feature branch from the shared local-only branch:
 
 ```bash
-git switch agent/revive-local-only
+git switch agent/re-slot-local-only
 git pull
 git switch -c feat/<short-description>
 ```
@@ -88,7 +88,7 @@ Telegram and ElevenLabs cannot call a loopback address. For a live provider demo
 
 ### Backboard
 
-Create or reuse the single REVIVE assistant:
+Create or reuse the single Re-Slot assistant:
 
 ```bash
 npm run setup:backboard
@@ -111,10 +111,10 @@ Open the generated Josh link on Josh's Telegram account and the Alex link on Ale
 
 1. Give the ElevenLabs key Conversational AI read/write and calling permissions.
 2. Import a voice-capable Twilio number through ElevenLabs' native phone-number integration.
-3. Create one low-latency REVIVE agent and set its ID and the imported phone-number ID in the environment.
+3. Create one low-latency Re-Slot agent and set its ID and the imported phone-number ID in the environment.
 4. Configure the inbound context URL as `/webhooks/elevenlabs/context`, server tools under `/webhooks/elevenlabs/tools/:tool`, and post-call events at `/webhooks/elevenlabs/post-call`.
 5. Put the same strong webhook secret in ElevenLabs and `ELEVENLABS_WEBHOOK_SECRET`, and set Sarah's E.164 demo number in `SARAH_PHONE`.
-6. Leave call recording disabled. REVIVE also sends `call_recording_enabled: false` on every outbound request.
+6. Leave call recording disabled. Re-Slot also sends `call_recording_enabled: false` on every outbound request.
 
 For live localhost scheduling, start an HTTPS tunnel to the Fastify port, put its URL in
 `PUBLIC_BASE_URL`, and update the agent's scheduling tools:
@@ -179,4 +179,4 @@ npm run check
 
 Tests cover availability, confirmation and consent, candidate ordering, discounts and move limits, atomic offer acceptance, expiration and retries, MongoDB transactions/indexes, duplicate webhooks, Backboard tool loops, ElevenLabs signatures, SSE, the live calendar, and the complete golden path.
 
-The approved system design and execution record live in [docs/superpowers/specs/2026-07-18-revive-design.md](docs/superpowers/specs/2026-07-18-revive-design.md) and [docs/superpowers/plans/2026-07-18-revive-implementation.md](docs/superpowers/plans/2026-07-18-revive-implementation.md). The locked front-desk redesign is documented in [docs/superpowers/specs/2026-07-18-revive-frontend-redesign.md](docs/superpowers/specs/2026-07-18-revive-frontend-redesign.md) with its execution plan in [docs/superpowers/plans/2026-07-18-front-desk-redesign-implementation.md](docs/superpowers/plans/2026-07-18-front-desk-redesign-implementation.md).
+The approved system design and execution record live in [docs/superpowers/specs/2026-07-18-re-slot-design.md](docs/superpowers/specs/2026-07-18-re-slot-design.md) and [docs/superpowers/plans/2026-07-18-re-slot-implementation.md](docs/superpowers/plans/2026-07-18-re-slot-implementation.md). The locked front-desk redesign is documented in [docs/superpowers/specs/2026-07-18-re-slot-frontend-redesign.md](docs/superpowers/specs/2026-07-18-re-slot-frontend-redesign.md) with its execution plan in [docs/superpowers/plans/2026-07-18-front-desk-redesign-implementation.md](docs/superpowers/plans/2026-07-18-front-desk-redesign-implementation.md).

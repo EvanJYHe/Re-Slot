@@ -6,7 +6,7 @@ import { InMemoryStore } from "../domain/store.js";
 import { RefillWorker, type OfferDelivery, type OfferSender } from "../domain/worker.js";
 import { createDemoState } from "./seed.js";
 
-describe("REVIVE golden path", () => {
+describe("Re-Slot golden path", () => {
   it("moves Sarah into Josh's opening, then fills Sarah's opening with Alex", async () => {
     const timezone = "America/Toronto";
     const store = new InMemoryStore(createDemoState({

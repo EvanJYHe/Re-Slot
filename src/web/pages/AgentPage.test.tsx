@@ -36,7 +36,7 @@ const conversations: ConversationSummary[] = [
     state: "active",
     preview: "Yes, please reserve it.",
     updatedAt: "2026-07-20T22:02:00.000Z",
-    hasException: false,
+    hasException: true,
   },
   {
     id: "conversation-sarah",
@@ -75,7 +75,7 @@ const detail: ConversationDetail = {
       id: "event-3",
       kind: "action",
       speaker: "system",
-      text: "REVIVE checked Jeremy's live availability.",
+      text: "Re-Slot checked Jeremy's live availability.",
       occurredAt: "2026-07-20T22:01:30.000Z",
     },
     {
@@ -91,7 +91,7 @@ const detail: ConversationDetail = {
     id: "activity-1",
     type: "offer.delivered",
     occurredAt: "2026-07-20T22:00:00.000Z",
-    message: "REVIVE delivered an appointment offer to Alex via Telegram.",
+    message: "Re-Slot delivered an appointment offer to Alex via Telegram.",
     customerId: "alex",
     customerName: "Alex",
   }],
@@ -146,7 +146,7 @@ const activity: ActivityItem[] = [{
   id: "activity-1",
   type: "appointment.cancelled",
   occurredAt: "2026-07-20T21:00:00.000Z",
-  message: "Josh's appointment was cancelled; REVIVE opened refill work.",
+  message: "Josh's appointment was cancelled; Re-Slot opened refill work.",
   customerId: "josh",
   customerName: "Josh",
 }];
@@ -179,21 +179,25 @@ afterEach(cleanup);
 
 describe("AgentPage", () => {
   it("renders real conversations in the locked list, ledger, and context structure", async () => {
-    render(<AgentPage api={api()} refreshKey={0} />);
+    const { container } = render(<AgentPage api={api()} refreshKey={0} />);
 
     expect(await screen.findByRole("heading", { name: "Conversations" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Conversation" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Context" })).toBeInTheDocument();
     expect(screen.getByText("Telegram · Outbound")).toBeInTheDocument();
     expect(screen.getByText("Voice · Outbound")).toBeInTheDocument();
+    expect(screen.getByText("Exception")).toBeInTheDocument();
+    expect(container.querySelector(".rounded-full.bg-revive")).toBeNull();
+    expect(container.querySelector(".rounded-full.bg-amber")).toBeNull();
+    expect(screen.getByRole("region", { name: "Agent inbox" })).toHaveClass("rounded-[4px]");
 
     expect(await screen.findByText("A 6 PM chair opened with Jeremy.")).toBeInTheDocument();
     const question = screen.getByText("Is the haircut still forty-five dollars?");
     const answer = screen.getByText("Yes — the signature haircut is $45.");
     expect(question.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const ledgerAction = screen.getByText("REVIVE checked Jeremy's live availability.");
+    const ledgerAction = screen.getByText("Re-Slot checked Jeremy's live availability.");
     expect(ledgerAction).toHaveClass("justify-self-center", "text-center");
-    expect(ledgerAction.parentElement).toHaveClass("grid-cols-[1fr_auto_1fr]", "items-center");
+    expect(ledgerAction.parentElement).toHaveClass("grid-cols-[minmax(0,1fr)_auto]", "items-center");
     expect(screen.queryByText(/never render this JSON/i)).not.toBeInTheDocument();
 
     const context = screen.getByRole("complementary", { name: "Context" });
@@ -219,6 +223,7 @@ describe("AgentPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Waitlist" }));
     const panel = await screen.findByRole("region", { name: "Open waitlist" });
+    expect(panel).toHaveClass("rounded-[4px]");
     expect(within(panel).getByText("Alex")).toBeInTheDocument();
     expect(within(panel).getByText("Signature haircut · Jeremy")).toBeInTheDocument();
 
@@ -244,7 +249,9 @@ describe("AgentPage", () => {
     ));
 
     await user.click(screen.getByRole("button", { name: "Activity" }));
-    expect(await screen.findByText("Josh's appointment was cancelled; REVIVE opened refill work.")).toBeInTheDocument();
+    const activityPanel = screen.getByRole("region", { name: "Scheduling activity" });
+    expect(activityPanel).toHaveClass("rounded-[4px]");
+    expect(within(activityPanel).getByText("Josh's appointment was cancelled; Re-Slot opened refill work.")).toBeInTheDocument();
     expect(screen.queryByText(/API key|raw webhook|voice laboratory/i)).not.toBeInTheDocument();
   });
 });
