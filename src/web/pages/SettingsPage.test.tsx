@@ -44,6 +44,7 @@ function api(): ReviveApi {
     bookAppointment: vi.fn(async () => { throw new Error("unused"); }),
     rescheduleAppointment: vi.fn(async () => { throw new Error("unused"); }),
     cancelAppointment: vi.fn(async () => { throw new Error("unused"); }),
+    cancelRefillJob: vi.fn(async () => { throw new Error("unused"); }),
   };
 }
 

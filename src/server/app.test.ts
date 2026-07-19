@@ -178,9 +178,11 @@ describe("Re-Slot Fastify API", () => {
       appointmentId: "josh-appt",
       now,
     });
-    const jobId = (await store.read()).refillJobs[0]!.id;
+    const jobId = (await store.read()).refillJobs.find(
+      (candidate) => candidate.sourceAppointmentId === "josh-appt",
+    )!.id;
     await store.transaction((state) => {
-      const job = state.refillJobs[0]!;
+      const job = state.refillJobs.find((candidate) => candidate.id === jobId)!;
       job.status = "awaiting_offer";
       job.currentOfferId = "safe-offer";
       state.offers.push({
@@ -216,6 +218,49 @@ describe("Re-Slot Fastify API", () => {
       timeline: [expect.objectContaining({ message: expect.stringContaining("cancelled") })],
     });
     expect(response.body).not.toContain("private-provider-message-id");
+  });
+
+  it("lets an operator close an active Open Chair and invalidates its offer", async () => {
+    await engine.cancel({
+      actor: { provider: "telegram", customerId: "josh" },
+      appointmentId: "josh-appt",
+      now,
+    });
+    const job = (await store.read()).refillJobs[0]!;
+    await store.transaction((state) => {
+      const current = state.refillJobs.find((candidate) => candidate.id === job.id)!;
+      current.status = "awaiting_offer";
+      current.currentOfferId = "offer-to-cancel";
+      state.offers.push({
+        id: "offer-to-cancel",
+        jobId: current.id,
+        customerId: "sarah",
+        candidateKind: "past_customer",
+        channel: "voice",
+        status: "delivered",
+        proposedStartAt: current.slotStartAt,
+        proposedEndAt: current.slotEndAt,
+        discountPercent: 0,
+        expiresAt: "2026-07-20T16:15:00.000Z",
+        deliveryAttempts: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/v1/refill-jobs/${job.id}/cancel`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ id: job.id, status: "cancelled" });
+    const snapshot = await store.read();
+    expect(snapshot.refillJobs.find((candidate) => candidate.id === job.id)).toMatchObject({
+      status: "cancelled",
+      timeline: expect.arrayContaining([expect.objectContaining({ type: "opening_cancelled" })]),
+    });
+    expect(snapshot.offers.find((offer) => offer.id === "offer-to-cancel")?.status).toBe("expired");
   });
 
   it("resets the local demo and preserves provider-linked identities", async () => {
@@ -314,7 +359,7 @@ describe("Re-Slot Fastify API", () => {
     expect(availability.json()).toMatchObject({
       date: "2026-07-20",
       slots: expect.arrayContaining([
-        expect.objectContaining({ barberId: "jeremy", startAt: "2026-07-20T20:00:00.000Z" }),
+        expect.objectContaining({ barberId: "jeremy", startAt: "2026-07-20T13:00:00.000Z" }),
       ]),
     });
 
@@ -325,7 +370,7 @@ describe("Re-Slot Fastify API", () => {
         customerId: "alex",
         barberId: "jeremy",
         serviceId: "haircut",
-        startAt: "2026-07-20T20:00:00.000Z",
+        startAt: "2026-07-20T13:00:00.000Z",
       },
     });
     expect(booking.statusCode).toBe(200);
@@ -337,7 +382,7 @@ describe("Re-Slot Fastify API", () => {
         customerId: "nadia",
         barberId: "jeremy",
         serviceId: "haircut",
-        startAt: "2026-07-20T20:00:00.000Z",
+        startAt: "2026-07-20T13:00:00.000Z",
       },
     });
     expect(collision.statusCode).toBe(409);
@@ -345,7 +390,7 @@ describe("Re-Slot Fastify API", () => {
     const moved = await app.inject({
       method: "PATCH",
       url: `/api/v1/appointments/${appointmentId}`,
-      payload: { barberId: "jeremy", startAt: "2026-07-20T19:00:00.000Z" },
+      payload: { barberId: "jeremy", startAt: "2026-07-21T13:00:00.000Z" },
     });
     expect(moved.statusCode).toBe(200);
     const cancelled = await app.inject({
@@ -354,7 +399,7 @@ describe("Re-Slot Fastify API", () => {
     });
     expect(cancelled.statusCode).toBe(200);
     expect((await store.read()).appointments.find((item) => item.id === appointmentId)).toMatchObject({
-      startAt: "2026-07-20T19:00:00.000Z",
+      startAt: "2026-07-21T13:00:00.000Z",
       status: "cancelled",
     });
   });
@@ -394,6 +439,54 @@ describe("Re-Slot Fastify API", () => {
         message: "We're closed at that time. We're open Monday through Friday from 9:00 AM to 5:00 PM.",
       });
     }
+  });
+
+  it("removes a customer from an active replacement offer when outreach is disabled", async () => {
+    await engine.cancel({
+      actor: { provider: "telegram", customerId: "josh" },
+      appointmentId: "josh-appt",
+      now,
+    });
+    const job = (await store.read()).refillJobs.find(
+      (candidate) => candidate.sourceAppointmentId === "josh-appt",
+    )!;
+    await store.transaction((state) => {
+      const current = state.refillJobs.find((candidate) => candidate.id === job.id)!;
+      current.status = "awaiting_offer";
+      current.currentOfferId = "active-sarah-offer";
+      state.offers.push({
+        id: "active-sarah-offer",
+        jobId: current.id,
+        customerId: "sarah",
+        candidateKind: "past_customer",
+        channel: "voice",
+        status: "delivered",
+        proposedStartAt: current.slotStartAt,
+        proposedEndAt: current.slotEndAt,
+        discountPercent: 0,
+        expiresAt: "2026-07-20T16:15:00.000Z",
+        deliveryAttempts: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/customers/sarah",
+      payload: { replacementOffersEnabled: false },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      preferences: { replacementOffersEnabled: false },
+    });
+    const snapshot = await store.read();
+    expect(snapshot.offers.find((offer) => offer.id === "active-sarah-offer")?.status).toBe("declined");
+    expect(snapshot.refillJobs.find((candidate) => candidate.id === job.id)).toMatchObject({
+      status: "pending",
+    });
+    expect(snapshot.refillJobs.find((candidate) => candidate.id === job.id)?.currentOfferId).toBeUndefined();
   });
 
   it("updates customer preferences, notes, and waitlist state with SSE-visible events", async () => {

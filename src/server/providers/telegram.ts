@@ -161,11 +161,11 @@ function linkSignature(customerId: string, secret: string): string {
 }
 
 export function createTelegramLinkToken(customerId: string, secret: string): string {
-  return `revive_${customerId}_${linkSignature(customerId, secret)}`;
+  return `re-slot_${customerId}_${linkSignature(customerId, secret)}`;
 }
 
 function customerFromLinkToken(token: string, secret: string): string | undefined {
-  const match = /^revive_([a-z0-9-]+)_([A-Za-z0-9_-]{16})$/.exec(token);
+  const match = /^(?:re-slot|revive)_([a-z0-9-]+)_([A-Za-z0-9_-]{16})$/.exec(token);
   if (match === null) return undefined;
   const customerId = match[1]!;
   const supplied = Buffer.from(match[2]!);

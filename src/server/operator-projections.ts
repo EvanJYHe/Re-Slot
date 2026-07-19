@@ -126,11 +126,12 @@ function deriveCustomerIntelligence(state: ReviveState, customerId: string) {
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   const nextAppointment = upcoming[0];
   const currentWaitlist = activeWaitlist[0];
+  const replacementOffersEnabled = customer.replacementOffersEnabled !== false;
   const bookingState = nextAppointment !== undefined
     ? "booked" as const
     : currentWaitlist !== undefined
       ? "waitlisted" as const
-      : customer.pastCustomerOptIn
+      : replacementOffersEnabled && customer.pastCustomerOptIn
         ? "outreach_ready" as const
         : "not_eligible" as const;
   const bookingStateLabel = bookingState === "booked"
@@ -150,7 +151,9 @@ function deriveCustomerIntelligence(state: ReviveState, customerId: string) {
         ? `Returning ${usualServiceName ?? "service"} customer · ${past.length} ${past.length === 1 ? "visit" : "visits"} · outreach allowed.`
         : bookingState === "outreach_ready"
           ? "Known customer with no upcoming booking · outreach allowed."
-          : "No upcoming booking · automated outreach is off.";
+          : replacementOffersEnabled
+            ? "No upcoming booking · automated outreach is off."
+            : "Replacement offers are turned off for this customer.";
 
   return {
     bookingState,
@@ -206,6 +209,7 @@ export function projectCustomerDetail(state: ReviveState, customerId: string) {
     },
     preferences: {
       contactPreference: customer.contactPreference,
+      replacementOffersEnabled: customer.replacementOffersEnabled !== false,
       earlierMoveConsent: customer.earlierMoveConsent,
       flexibleBarberPreference: customer.flexibleBarberPreference,
       pastCustomerOptIn: customer.pastCustomerOptIn,

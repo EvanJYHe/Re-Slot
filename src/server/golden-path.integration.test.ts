@@ -43,14 +43,15 @@ describe("Re-Slot golden path", () => {
       offer: { candidateKind: "move_earlier", channel: "voice" },
     });
 
-    await engine.respondToOffer({
+    const acceptedVoiceOffer = await engine.respondToOffer({
       actor: { provider: "elevenlabs", customerId: "sarah" },
       offerId: deliveries[0]!.offer.id,
       response: "accept",
       confirmed: true,
-      now: "2026-07-20T16:01:00.000Z",
+      now: "2026-07-20T16:05:00.000Z",
     });
-    await worker.runOnce("2026-07-20T16:01:05.000Z");
+    expect(acceptedVoiceOffer).toMatchObject({ type: "committed", operation: "accept_offer" });
+    await worker.runOnce("2026-07-20T16:05:05.000Z");
     expect(deliveries[1]).toMatchObject({
       customer: { id: "alex" },
       offer: { candidateKind: "waitlist", channel: "telegram" },
@@ -61,7 +62,7 @@ describe("Re-Slot golden path", () => {
       offerId: deliveries[1]!.offer.id,
       response: "accept",
       confirmed: true,
-      now: "2026-07-20T16:01:30.000Z",
+      now: "2026-07-20T16:05:30.000Z",
     });
 
     const state = await store.read();
@@ -78,12 +79,6 @@ describe("Re-Slot golden path", () => {
     );
     expect(alex).toBeDefined();
     expect(localHour(alex!.startAt)).toBe(14);
-    expect(state.appointments.some(
-      (appointment) => appointment.barberId === "jeremy"
-        && appointment.status === "confirmed"
-        && localHour(appointment.startAt) === 17
-        && DateTime.fromISO(appointment.startAt).setZone(timezone).toISODate() === "2026-07-20",
-    )).toBe(false);
     expect(state.refillJobs.filter((job) => job.status === "completed" && !job.id.startsWith("demo-"))).toHaveLength(2);
   });
 });

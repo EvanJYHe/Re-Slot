@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently -k -n api,web -c yellow,cyan \"PORT=3100 PUBLIC_BASE_URL=http://127.0.0.1:3100 tsx watch src/server/index.ts\" \"vite --host 127.0.0.1 --port 5174\"",
+    "dev": "concurrently -k -n api,web,tunnel -c yellow,cyan,magenta \"PORT=3100 PUBLIC_BASE_URL=http://127.0.0.1:3100 tsx watch src/server/index.ts\" \"vite --host 127.0.0.1 --port 5174\" \"node --env-file=.env scripts/start-local-tunnel.mjs\"",
     "local": "npm run build && NODE_ENV=production PORT=3100 PUBLIC_BASE_URL=http://127.0.0.1:3100 npm start",
     "build": "vite build && tsup src/server/index.ts --format esm --out-dir dist/server --sourcemap --clean",
     "start": "node dist/server/index.js",

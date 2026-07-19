@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 
+import { ReviveEngine } from "./engine.js";
 import { InMemoryStore, type ReviveState } from "./store.js";
 import type { OutreachOffer, SchedulingSettings } from "./types.js";
 import { RefillWorker, type OfferDelivery, type OfferSender } from "./worker.js";
@@ -155,7 +156,7 @@ describe("RefillWorker", () => {
     expect(notifications).toBe(0);
   });
 
-  it("leases a job and delivers the first ranked offer with a two-minute expiry", async () => {
+  it("leases a job and gives a voice recipient enough time to accept during the call", async () => {
     const store = new InMemoryStore(state());
     const worker = new RefillWorker(store, new DeterministicSender(), {
       workerId: "worker-a",
@@ -172,13 +173,107 @@ describe("RefillWorker", () => {
       candidateKind: "move_earlier",
       channel: "voice",
       status: "delivered",
-      expiresAt: "2026-07-20T16:02:00.000Z",
+      expiresAt: "2026-07-20T16:15:00.000Z",
     }));
     expect(snapshot.refillJobs[0]).toMatchObject({
       status: "awaiting_offer",
       currentOfferId: "offer-sarah",
       attemptedCustomerIds: ["sarah"],
     });
+
+    const accepted = await new ReviveEngine(store).respondToOffer({
+      actor: { provider: "elevenlabs", customerId: "sarah" },
+      offerId: "offer-sarah",
+      response: "accept",
+      confirmed: true,
+      now: "2026-07-20T16:05:00.000Z",
+    });
+    expect(accepted).toMatchObject({ type: "committed", operation: "accept_offer" });
+  });
+
+  it("calls the configured priority voice recipient before unrelated ranked customers", async () => {
+    const initial = state();
+    initial.appointments = initial.appointments.filter((appointment) => appointment.id !== "sarah-appt");
+    const deliveries: OfferDelivery[] = [];
+    const store = new InMemoryStore(initial);
+    const worker = new RefillWorker(store, {
+      send: async (delivery) => {
+        deliveries.push(delivery);
+        return { providerMessageId: "priority-call" };
+      },
+    }, {
+      workerId: "priority-worker",
+      idFactory: () => "offer-priority-sarah",
+      priorityVoiceCustomerId: "sarah",
+    });
+
+    const result = await worker.runOnce("2026-07-20T16:00:00.000Z");
+
+    expect(result).toMatchObject({ status: "offer_delivered", customerId: "sarah" });
+    expect(deliveries[0]).toMatchObject({
+      customer: { id: "sarah", phone: "+14165550101" },
+      offer: {
+        customerId: "sarah",
+        channel: "voice",
+        candidateKind: "past_customer",
+        discountPercent: 0,
+      },
+    });
+  });
+
+  it("does not place overlapping calls to the priority voice recipient", async () => {
+    const initial = state();
+    initial.refillJobs[0] = {
+      ...initial.refillJobs[0]!,
+      status: "awaiting_offer",
+      currentOfferId: "active-sarah-offer",
+      attemptedCustomerIds: ["sarah"],
+    };
+    initial.offers.push({
+      id: "active-sarah-offer",
+      jobId: "job-1",
+      customerId: "sarah",
+      candidateKind: "move_earlier",
+      channel: "voice",
+      status: "delivered",
+      proposedStartAt: slot5,
+      proposedEndAt: slot6,
+      discountPercent: 0,
+      expiresAt: "2026-07-20T16:15:00.000Z",
+      deliveryAttempts: 1,
+      createdAt: "2026-07-20T16:00:00.000Z",
+      updatedAt: "2026-07-20T16:00:00.000Z",
+    });
+    const { currentOfferId: _activeOfferId, ...jobWithoutCurrentOffer } = initial.refillJobs[0]!;
+    initial.refillJobs.push({
+      ...jobWithoutCurrentOffer,
+      id: "job-2",
+      sourceAppointmentId: "another-cancelled-appointment",
+      status: "pending",
+      attemptedCustomerIds: [],
+      createdAt: "2026-07-20T15:56:00.000Z",
+      updatedAt: "2026-07-20T15:56:00.000Z",
+    });
+    const deliveries: OfferDelivery[] = [];
+    const store = new InMemoryStore(initial);
+    const worker = new RefillWorker(store, {
+      send: async (delivery) => {
+        deliveries.push(delivery);
+        return { providerMessageId: "unexpected-call" };
+      },
+    }, {
+      workerId: "priority-worker",
+      priorityVoiceCustomerId: "sarah",
+    });
+
+    expect(await worker.runOnce("2026-07-20T16:01:00.000Z")).toEqual({ status: "idle" });
+    const deferred = (await store.read()).refillJobs.find((job) => job.id === "job-2");
+    expect(deferred).toMatchObject({
+      status: "pending",
+      retryAt: "2026-07-20T16:01:15.000Z",
+      attemptedCustomerIds: [],
+    });
+    expect(deliveries).toHaveLength(0);
   });
 
   it("retries provider delivery before exposing a successful offer", async () => {

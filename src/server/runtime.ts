@@ -111,6 +111,30 @@ export async function createRuntime(
 ): Promise<ReviveRuntime> {
   const clock = options.clock ?? (() => new Date().toISOString());
   const storeHandle = await openStore(config, clock);
+  const configuredSarahPhone = config.sarahPhone;
+  if (configuredSarahPhone !== undefined) {
+    const current = await storeHandle.store.read();
+    const sarah = current.customers.find((customer) => customer.id === "sarah");
+    if (
+      sarah !== undefined
+      && (
+        sarah.phone !== configuredSarahPhone
+        || sarah.contactPreference !== "voice"
+        || !sarah.earlierMoveConsent
+        || !sarah.pastCustomerOptIn
+      )
+    ) {
+      await storeHandle.store.transaction((state) => {
+        const recipient = state.customers.find((customer) => customer.id === "sarah");
+        if (recipient === undefined) return;
+        recipient.phone = configuredSarahPhone;
+        recipient.contactPreference = "voice";
+        recipient.earlierMoveConsent = true;
+        recipient.pastCustomerOptIn = true;
+        recipient.updatedAt = clock();
+      });
+    }
+  }
   const engine = new ReviveEngine(storeHandle.store);
   const toolbox = new SchedulingToolbox(storeHandle.store, engine, clock);
 
@@ -174,7 +198,10 @@ export async function createRuntime(
           voiceTokenSecret: config.voiceActorSecret,
           clock,
         }),
-        { workerId: `revive-${process.pid}` },
+        {
+          workerId: `revive-${process.pid}`,
+          ...(configuredSarahPhone === undefined ? {} : { priorityVoiceCustomerId: "sarah" }),
+        },
       );
 
   const app = await buildServer({

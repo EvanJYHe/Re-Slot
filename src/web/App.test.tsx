@@ -88,6 +88,7 @@ function api(): ReviveApi {
     bookAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "book", message: "Booked" })),
     rescheduleAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "reschedule", message: "Moved" })),
     cancelAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "cancel", message: "Cancelled" })),
+    cancelRefillJob: vi.fn(async (id) => ({ id, status: "cancelled" })),
   };
 }
 

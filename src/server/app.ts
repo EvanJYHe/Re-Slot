@@ -84,6 +84,7 @@ const appointmentMoveSchema = z.object({
 
 const customerPatchSchema = z.object({
   contactPreference: z.enum(["telegram", "voice"]).optional(),
+  replacementOffersEnabled: z.boolean().optional(),
   earlierMoveConsent: z.boolean().optional(),
   flexibleBarberPreference: z.boolean().optional(),
   pastCustomerOptIn: z.boolean().optional(),
@@ -210,11 +211,21 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     if (options.elevenLabsWebhooks === undefined) {
       return reply.status(503).send({ error: "elevenlabs_unconfigured" });
     }
-    return options.elevenLabsWebhooks.executeTool(
+    const result = await options.elevenLabsWebhooks.executeTool(
       request.params.tool,
       request.body,
       request.headers.authorization,
     );
+    const summary = typeof result === "object" && result !== null
+      ? result as { type?: unknown; code?: unknown; operation?: unknown }
+      : {};
+    request.log.info({
+      tool: request.params.tool,
+      resultType: typeof summary.type === "string" ? summary.type : "unknown",
+      ...(typeof summary.code === "string" ? { code: summary.code } : {}),
+      ...(typeof summary.operation === "string" ? { operation: summary.operation } : {}),
+    }, "ElevenLabs scheduling tool completed");
+    return result;
   });
 
   app.post("/webhooks/elevenlabs/post-call", {
@@ -277,7 +288,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       .sort((left, right) => left.startAt.localeCompare(right.startAt));
     const activeRefills = state.refillJobs
       .filter((job) => inRange(job.slotStartAt))
-      .filter((job) => !["completed", "exhausted", "failed"].includes(job.status))
+      .filter((job) => !["completed", "cancelled", "exhausted", "failed"].includes(job.status))
       .map((job) => {
         const offer = job.currentOfferId === undefined
           ? undefined
@@ -435,6 +446,30 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       const customer = state.customers.find((candidate) => candidate.id === request.params.id);
       if (customer === undefined) return false;
       Object.assign(customer, patch, { updatedAt: clock() });
+      if (patch.replacementOffersEnabled === false) {
+        for (const offer of state.offers) {
+          if (offer.customerId !== customer.id || !["pending", "delivered"].includes(offer.status)) continue;
+          offer.status = "declined";
+          offer.updatedAt = clock();
+          const job = state.refillJobs.find((candidate) => (
+            candidate.id === offer.jobId && candidate.currentOfferId === offer.id
+          ));
+          if (job === undefined) continue;
+          job.status = "pending";
+          delete job.currentOfferId;
+          delete job.leaseOwner;
+          delete job.leaseExpiresAt;
+          job.updatedAt = clock();
+          job.version += 1;
+          job.timeline.push({
+            type: "offer_declined",
+            at: clock(),
+            message: `${customer.name} was removed from replacement offers by the operator.`,
+            customerId: customer.id,
+            offerId: offer.id,
+          });
+        }
+      }
       state.events.push({
         id: randomUUID(),
         type: "customer.updated",
@@ -541,6 +576,50 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
         customerName: customer?.name ?? "Unknown customer",
       },
     };
+  });
+
+  app.post<{ Params: { id: string } }>("/api/v1/refill-jobs/:id/cancel", async (request, reply) => {
+    const result = await options.store.transaction((state) => {
+      const job = state.refillJobs.find((candidate) => candidate.id === request.params.id);
+      if (job === undefined) return undefined;
+      if (job.status === "cancelled") return { id: job.id, status: job.status };
+      if (["completed", "exhausted", "failed"].includes(job.status)) {
+        return { id: job.id, status: job.status };
+      }
+
+      const currentOffer = job.currentOfferId === undefined
+        ? undefined
+        : state.offers.find((offer) => offer.id === job.currentOfferId);
+      if (
+        currentOffer !== undefined
+        && ["pending", "delivered"].includes(currentOffer.status)
+      ) {
+        currentOffer.status = "expired";
+        currentOffer.updatedAt = clock();
+      }
+
+      job.status = "cancelled";
+      delete job.currentOfferId;
+      delete job.leaseOwner;
+      delete job.leaseExpiresAt;
+      delete job.retryAt;
+      job.updatedAt = clock();
+      job.version += 1;
+      job.timeline.push({
+        type: "opening_cancelled",
+        at: clock(),
+        message: "The operator closed this Open Chair. Re-Slot stopped contacting customers.",
+      });
+      state.events.push({
+        id: randomUUID(),
+        type: "refill.cancelled",
+        aggregateId: job.id,
+        occurredAt: clock(),
+      });
+      return { id: job.id, status: job.status };
+    });
+    if (result === undefined) return reply.status(404).send({ error: "not_found" });
+    return result;
   });
 
   app.get("/api/v1/events", async (request, reply) => {
