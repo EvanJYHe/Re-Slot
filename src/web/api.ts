@@ -45,97 +45,71 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-function authorization(token: string | undefined): HeadersInit {
-  return token === undefined ? {} : { Authorization: `Bearer ${token}` };
-}
-
 export const defaultApi: ReviveApi = {
   getCalendar: (date) => request<CalendarResponse>(`/api/v1/calendar?date=${encodeURIComponent(date)}`),
   getCalendarRange: (start, end) => request<CalendarResponse>(
     `/api/v1/calendar?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
   ),
-  getAvailability: (input, token) => {
+  getAvailability: (input) => {
     const query = new URLSearchParams({ date: input.date, serviceId: input.serviceId });
     if (input.barberId !== undefined) query.set("barberId", input.barberId);
     if (input.includeAlternates !== undefined) query.set("includeAlternates", String(input.includeAlternates));
-    return request<AvailabilityResponse>(`/api/v1/availability?${query.toString()}`, {
-      headers: authorization(token),
-    });
+    return request<AvailabilityResponse>(`/api/v1/availability?${query.toString()}`);
   },
   getSettings: () => request<SchedulingSettings>("/api/v1/settings"),
-  patchSettings: (patch, token) => request<SchedulingSettings>("/api/v1/settings", {
+  patchSettings: (patch) => request<SchedulingSettings>("/api/v1/settings", {
     method: "PATCH",
-    headers: authorization(token),
     body: JSON.stringify(patch),
   }),
-  createAdminSession: (pin) => request<{ token: string }>("/api/v1/admin/session", {
+  resetDemo: () => request<{ status: string; demoDate: string }>("/api/v1/demo/reset", {
     method: "POST",
-    body: JSON.stringify({ pin }),
   }),
-  resetDemo: (token) => request<{ status: string; demoDate: string }>("/api/v1/demo/reset", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  }),
-  getCustomers: (query, token) => request<CustomerSummary[]>(
+  getCustomers: (query) => request<CustomerSummary[]>(
     `/api/v1/customers?q=${encodeURIComponent(query)}`,
-    { headers: authorization(token) },
   ),
-  getCustomer: (id, token) => request<CustomerDetail>(
+  getCustomer: (id) => request<CustomerDetail>(
     `/api/v1/customers/${encodeURIComponent(id)}`,
-    { headers: authorization(token) },
   ),
-  patchCustomer: (id, patch, token) => request<CustomerDetail>(
+  patchCustomer: (id, patch) => request<CustomerDetail>(
     `/api/v1/customers/${encodeURIComponent(id)}`,
     {
       method: "PATCH",
-      headers: authorization(token),
       body: JSON.stringify(patch),
     },
   ),
-  addCustomerNote: (id, text, token) => request<CustomerNote>(
+  addCustomerNote: (id, text) => request<CustomerNote>(
     `/api/v1/customers/${encodeURIComponent(id)}/notes`,
     {
       method: "POST",
-      headers: authorization(token),
       body: JSON.stringify({ text }),
     },
   ),
-  getConversations: (token) => request<ConversationSummary[]>("/api/v1/conversations", {
-    headers: authorization(token),
-  }),
-  getConversation: (id, token) => request<ConversationDetail>(
+  getConversations: () => request<ConversationSummary[]>("/api/v1/conversations"),
+  getConversation: (id) => request<ConversationDetail>(
     `/api/v1/conversations/${encodeURIComponent(id)}`,
-    { headers: authorization(token) },
   ),
-  getWaitlist: (token) => request<OperatorWaitlistEntry[]>("/api/v1/waitlist", {
-    headers: authorization(token),
-  }),
-  patchWaitlist: (id, patch, token) => request<OperatorWaitlistEntry>(
+  getWaitlist: () => request<OperatorWaitlistEntry[]>("/api/v1/waitlist"),
+  patchWaitlist: (id, patch) => request<OperatorWaitlistEntry>(
     `/api/v1/waitlist/${encodeURIComponent(id)}`,
     {
       method: "PATCH",
-      headers: authorization(token),
       body: JSON.stringify(patch),
     },
   ),
-  getActivity: (token) => request<ActivityItem[]>("/api/v1/activity", {
-    headers: authorization(token),
-  }),
-  bookAppointment: (input: AppointmentInput, token) => request<OperationResult>("/api/v1/appointments", {
+  getActivity: () => request<ActivityItem[]>("/api/v1/activity"),
+  bookAppointment: (input: AppointmentInput) => request<OperationResult>("/api/v1/appointments", {
     method: "POST",
-    headers: authorization(token),
     body: JSON.stringify(input),
   }),
-  rescheduleAppointment: (id, input, token) => request<OperationResult>(
+  rescheduleAppointment: (id, input) => request<OperationResult>(
     `/api/v1/appointments/${encodeURIComponent(id)}`,
     {
       method: "PATCH",
-      headers: authorization(token),
       body: JSON.stringify(input),
     },
   ),
-  cancelAppointment: (id, token) => request<OperationResult>(
+  cancelAppointment: (id) => request<OperationResult>(
     `/api/v1/appointments/${encodeURIComponent(id)}/cancel`,
-    { method: "POST", headers: authorization(token) },
+    { method: "POST" },
   ),
 };

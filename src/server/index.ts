@@ -14,7 +14,7 @@ async function main(): Promise<void> {
     ...(config.nodeEnv === "production" ? { staticRoot: publicRoot } : {}),
   });
 
-  await runtime.app.listen({ host: "0.0.0.0", port: config.port });
+  await runtime.app.listen({ host: "127.0.0.1", port: config.port });
   await runtime.configureWebhooks();
   runtime.startWorker();
   runtime.app.log.info({ port: config.port, store: runtime.storeKind }, "REVIVE is ready");

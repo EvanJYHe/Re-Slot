@@ -74,7 +74,6 @@ function api(): ReviveApi {
     })),
     getSettings: vi.fn(async () => settings),
     patchSettings: vi.fn(async (patch) => ({ ...settings, ...patch })),
-    createAdminSession: vi.fn(async () => ({ token: "operator-token" })),
     resetDemo: vi.fn(async () => ({ status: "reset", demoDate: "2026-07-20" })),
     getCustomers: vi.fn(async () => []),
     getCustomer: vi.fn(async () => { throw new Error("unused"); }),
@@ -93,7 +92,6 @@ function api(): ReviveApi {
 
 afterEach(() => {
   cleanup();
-  window.sessionStorage.clear();
 });
 
 describe("DashboardApp shell", () => {
@@ -126,36 +124,30 @@ describe("DashboardApp shell", () => {
     await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-06-29", "2026-08-09"));
   });
 
-  it("keeps Calendar visible while requesting operator access for scheduling", async () => {
+  it("opens scheduling directly from the local Calendar workspace", async () => {
     const user = userEvent.setup();
     render(<DashboardApp api={api()} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
 
     await screen.findByRole("heading", { name: "Calendar" });
     await user.click(screen.getByRole("button", { name: "New appointment" }));
 
-    expect(screen.getByRole("heading", { name: "Unlock operator workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "New appointment" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Unlock operator workspace" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Calendar" })).toBeInTheDocument();
   });
 
-  it("unlocks protected workspaces with one short-lived operator session", async () => {
+  it("opens local operator workspaces without an unlock session", async () => {
     const user = userEvent.setup();
     const client = api();
     render(<DashboardApp api={client} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
 
     await user.click(screen.getByRole("button", { name: "Agent" }));
-    expect(screen.getByRole("heading", { name: "Unlock operator workspace" })).toBeInTheDocument();
-    await user.type(screen.getByLabelText("Admin PIN"), "4242");
-    await user.click(screen.getByRole("button", { name: "Unlock" }));
-
     expect(await screen.findByRole("heading", { name: "Agent" })).toBeInTheDocument();
-    expect(client.createAdminSession).toHaveBeenCalledWith("4242");
-    expect(window.sessionStorage.getItem("revive.operator-token")).toBe("operator-token");
-    await waitFor(() => expect(client.getConversations).toHaveBeenCalledWith("operator-token"));
+    expect(screen.queryByRole("heading", { name: "Unlock operator workspace" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Customers" }));
     expect(screen.getByRole("heading", { name: "Customers" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Unlock operator workspace" })).not.toBeInTheDocument();
-    await waitFor(() => expect(client.getCustomers).toHaveBeenCalledWith("", "operator-token"));
   });
 
   it("reports SSE connection state and refetches authoritative calendar data", async () => {
@@ -174,7 +166,7 @@ describe("DashboardApp shell", () => {
     await waitFor(() => expect(client.getCalendarRange).toHaveBeenCalledTimes(2));
   });
 
-  it("invalidates the active protected workspace after a domain event", async () => {
+  it("invalidates the active operator workspace after a domain event", async () => {
     const user = userEvent.setup();
     const listeners = new Map<string, () => void>();
     const source: EventSourceLike = {
@@ -186,7 +178,6 @@ describe("DashboardApp shell", () => {
       <DashboardApp
         api={client}
         initialDate="2026-07-20"
-        initialOperatorToken="operator-token"
         eventSourceFactory={() => source}
       />,
     );

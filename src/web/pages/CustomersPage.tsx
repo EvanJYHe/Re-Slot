@@ -6,7 +6,6 @@ import type { CustomerDetail, CustomerSummary, ReviveApi } from "../types.js";
 
 interface CustomersPageProps {
   api: ReviveApi;
-  token: string;
   refreshKey: number;
 }
 
@@ -109,9 +108,8 @@ function AppointmentList({ detail }: { detail: CustomerDetail }) {
   return <div className="grid gap-5 lg:grid-cols-2">{group("Upcoming", upcoming)}{group("Past", past)}</div>;
 }
 
-function CustomerRecord({ api, token, detail, saving, onDetailChange, onSavingChange }: {
+function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }: {
   api: ReviveApi;
-  token: string;
   detail: CustomerDetail;
   saving: string | undefined;
   onDetailChange: (detail: CustomerDetail) => void;
@@ -120,12 +118,12 @@ function CustomerRecord({ api, token, detail, saving, onDetailChange, onSavingCh
   const [note, setNote] = useState("");
 
   const refresh = async () => {
-    onDetailChange(await api.getCustomer(detail.id, token));
+    onDetailChange(await api.getCustomer(detail.id));
   };
   const updatePreference = async (patch: Partial<CustomerDetail["preferences"]>) => {
     onSavingChange("Saving…");
     try {
-      await api.patchCustomer(detail.id, patch, token);
+      await api.patchCustomer(detail.id, patch);
       await refresh();
       onSavingChange("Saved");
     } catch (error) {
@@ -137,7 +135,7 @@ function CustomerRecord({ api, token, detail, saving, onDetailChange, onSavingCh
     if (text === "") return;
     onSavingChange("Saving note…");
     try {
-      await api.addCustomerNote(detail.id, text, token);
+      await api.addCustomerNote(detail.id, text);
       setNote("");
       await refresh();
       onSavingChange("Saved");
@@ -243,7 +241,7 @@ function CustomerRecord({ api, token, detail, saving, onDetailChange, onSavingCh
   );
 }
 
-export function CustomersPage({ api, token, refreshKey }: CustomersPageProps) {
+export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
   const [query, setQuery] = useState("");
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string>();
@@ -253,7 +251,7 @@ export function CustomersPage({ api, token, refreshKey }: CustomersPageProps) {
 
   useEffect(() => {
     let active = true;
-    void api.getCustomers(query, token).then((results) => {
+    void api.getCustomers(query).then((results) => {
       if (!active) return;
       setCustomers(results);
       setSelectedId((current) => (
@@ -264,19 +262,19 @@ export function CustomersPage({ api, token, refreshKey }: CustomersPageProps) {
       if (results.length === 0) setDetail(undefined);
     });
     return () => { active = false; };
-  }, [api, query, refreshKey, token]);
+  }, [api, query, refreshKey]);
 
   useEffect(() => {
     if (selectedId === undefined) return;
     let active = true;
     setLoadingDetail(true);
-    void api.getCustomer(selectedId, token).then((nextDetail) => {
+    void api.getCustomer(selectedId).then((nextDetail) => {
       if (active) setDetail(nextDetail);
     }).finally(() => {
       if (active) setLoadingDetail(false);
     });
     return () => { active = false; };
-  }, [api, refreshKey, selectedId, token]);
+  }, [api, refreshKey, selectedId]);
 
   return (
     <section>
@@ -311,7 +309,6 @@ export function CustomersPage({ api, token, refreshKey }: CustomersPageProps) {
               onDetailChange={setDetail}
               onSavingChange={setSaving}
               saving={saving}
-              token={token}
             />
           )}
         </div>

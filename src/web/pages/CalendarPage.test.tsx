@@ -146,7 +146,6 @@ function api(): ReviveApi {
     })),
     getSettings: vi.fn(async () => settings),
     patchSettings: vi.fn(async (patch) => ({ ...settings, ...patch })),
-    createAdminSession: vi.fn(async () => ({ token: "operator-token" })),
     resetDemo: vi.fn(async () => ({ status: "reset", demoDate: "2026-07-20" })),
     getCustomers: vi.fn(async () => [{
       id: "alex",
@@ -169,7 +168,7 @@ function api(): ReviveApi {
   };
 }
 
-function Harness({ client = api(), token = "operator-token" }: { client?: ReviveApi; token?: string }) {
+function Harness({ client = api() }: { client?: ReviveApi }) {
   const [view, setView] = useState<CalendarView>("day");
   const [date, setDate] = useState("2026-07-20");
   const [barber, setBarber] = useState("all");
@@ -183,9 +182,7 @@ function Harness({ client = api(), token = "operator-token" }: { client?: Revive
       onAnchorDateChange={setDate}
       onBarberFilterChange={setBarber}
       onMutated={vi.fn(async () => undefined)}
-      onRequireOperator={vi.fn()}
       onViewChange={setView}
-      operatorToken={token}
       view={view}
     />
   );
@@ -253,9 +250,7 @@ describe("CalendarPage", () => {
         onAnchorDateChange={vi.fn()}
         onBarberFilterChange={vi.fn()}
         onMutated={mutated}
-        onRequireOperator={vi.fn()}
         onViewChange={vi.fn()}
-        operatorToken="operator-token"
         view="day"
       />,
     );
@@ -272,7 +267,7 @@ describe("CalendarPage", () => {
       barberId: "jeremy",
       serviceId: "haircut",
       startAt: "2026-07-20T19:00:00.000Z",
-    }, "operator-token"));
+    }));
     expect(mutated).toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "New appointment" })).not.toBeInTheDocument();
   });

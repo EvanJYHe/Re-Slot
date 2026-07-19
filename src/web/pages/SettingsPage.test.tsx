@@ -37,7 +37,6 @@ function api(): ReviveApi {
       current = { ...current, ...patch };
       return { ...current };
     }),
-    createAdminSession: vi.fn(async () => ({ token: "operator-token" })),
     resetDemo: vi.fn(async () => ({ status: "reset", demoDate: "2026-07-20" })),
     getCustomers: vi.fn(async () => []),
     getCustomer: vi.fn(async () => { throw new Error("unused"); }),
@@ -64,7 +63,6 @@ describe("SettingsPage", () => {
         channelHealth={channelHealth}
         onReset={vi.fn(async () => undefined)}
         refreshKey={0}
-        token="operator-token"
       />,
     );
 
@@ -90,7 +88,7 @@ describe("SettingsPage", () => {
     expect(screen.queryByText(/prompt editor|voice laboratory|analytics|API key/i)).not.toBeInTheDocument();
   });
 
-  it("saves one policy at a time and confirms the protected demo reset", async () => {
+  it("saves one policy at a time and confirms the local demo reset", async () => {
     const user = userEvent.setup();
     const client = api();
     const onReset = vi.fn(async () => undefined);
@@ -100,7 +98,6 @@ describe("SettingsPage", () => {
         channelHealth={channelHealth}
         onReset={onReset}
         refreshKey={0}
-        token="operator-token"
       />,
     );
 
@@ -108,7 +105,6 @@ describe("SettingsPage", () => {
     await user.click(screen.getByRole("checkbox", { name: "Automatic vacancy refill" }));
     await waitFor(() => expect(client.patchSettings).toHaveBeenCalledWith(
       { refillEnabled: false },
-      "operator-token",
     ));
     expect(await screen.findByText("Saved")).toBeInTheDocument();
 
@@ -118,14 +114,13 @@ describe("SettingsPage", () => {
     await user.tab();
     await waitFor(() => expect(client.patchSettings).toHaveBeenCalledWith(
       { moveLimit: 2 },
-      "operator-token",
     ));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Reset demo week" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Reset demo week" }));
     expect(screen.getByText("This restores the seeded week while preserving linked demo identities.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm demo reset" }));
-    await waitFor(() => expect(client.resetDemo).toHaveBeenCalledWith("operator-token"));
+    await waitFor(() => expect(client.resetDemo).toHaveBeenCalledWith());
     expect(onReset).toHaveBeenCalledOnce();
   });
 });

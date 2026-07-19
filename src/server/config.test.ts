@@ -7,11 +7,23 @@ describe("loadConfig", () => {
     const config = loadConfig({ DATA_STORE: "memory", DEMO_MODE: "true" });
 
     expect(config.dataStore).toBe("memory");
+    expect(config.port).toBe(3100);
+    expect(config.publicBaseUrl).toBe("http://127.0.0.1:3100");
     expect(config.timezone).toBe("America/Toronto");
     expect(config.demoMode).toBe(true);
   });
 
   it("rejects an unknown persistence mode", () => {
     expect(() => loadConfig({ DATA_STORE: "spreadsheet" })).toThrow();
+  });
+
+  it("derives a provider actor secret without admin-session configuration", () => {
+    const config = loadConfig({ ELEVENLABS_WEBHOOK_SECRET: "voice-secret" });
+
+    expect(config.voiceActorSecret).toBe("voice-secret");
+    expect("demoAdminPin" in config).toBe(false);
+    expect("adminSessionSecret" in config).toBe(false);
+    expect(loadConfig({}).voiceActorSecret).toEqual(expect.any(String));
+    expect(loadConfig({}).voiceActorSecret.length).toBeGreaterThan(0);
   });
 });

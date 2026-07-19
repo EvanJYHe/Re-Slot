@@ -22,21 +22,20 @@ describe("REVIVE browser API", () => {
     );
   });
 
-  it("attaches the short-lived operator token to protected reads", async () => {
+  it("uses tokenless local operator reads and exposes no admin-session client", async () => {
     const fetchMock = vi.fn(async () => new Response("[]", {
       status: 200,
       headers: { "content-type": "application/json" },
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await defaultApi.getCustomers("sar ah", "operator-token");
+    await defaultApi.getCustomers("sar ah");
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/customers?q=sar%20ah",
-      expect.objectContaining({
-        headers: { Authorization: "Bearer operator-token" },
-      }),
+      expect.objectContaining({ headers: {} }),
     );
+    expect("createAdminSession" in defaultApi).toBe(false);
   });
 
   it("surfaces stale appointment conflicts with their HTTP status", async () => {
@@ -54,7 +53,7 @@ describe("REVIVE browser API", () => {
       barberId: "jeremy",
       serviceId: "haircut",
       startAt: "2026-07-20T20:00:00.000Z",
-    }, "operator-token")).rejects.toMatchObject({
+    })).rejects.toMatchObject({
       status: 409,
       message: "That time was just taken.",
     });

@@ -6,10 +6,9 @@ import {
   AgentIcon,
   CalendarIcon,
   CustomersIcon,
-  LockIcon,
   SettingsIcon,
 } from "./components/icons.js";
-import { Button, Modal, StatusDot, cn } from "./components/ui.js";
+import { StatusDot, cn } from "./components/ui.js";
 import { periodRange, type CalendarView } from "./lib/dates.js";
 import { AgentPage } from "./pages/AgentPage.js";
 import { CalendarPage } from "./pages/CalendarPage.js";
@@ -22,12 +21,10 @@ export type AppPage = "calendar" | "agent" | "customers" | "settings";
 interface DashboardAppProps {
   api?: ReviveApi;
   initialDate?: string;
-  initialOperatorToken?: string;
   eventSourceFactory?: (url: string) => EventSourceLike | undefined;
 }
 
 const defaultEventSourceFactory = (url: string): EventSourceLike => new EventSource(url);
-const tokenStorageKey = "revive.operator-token";
 
 const destinations = [
   { id: "calendar" as const, label: "Calendar", icon: CalendarIcon },
@@ -42,72 +39,9 @@ function nextOperationalDate(): string {
   return date.toISODate()!;
 }
 
-function storedOperatorToken(): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  return window.sessionStorage.getItem(tokenStorageKey) ?? undefined;
-}
-
-function OperatorGate({ api, onUnlocked, overlay = false, onClose }: {
-  api: ReviveApi;
-  onUnlocked: (token: string) => void;
-  overlay?: boolean;
-  onClose?: () => void;
-}) {
-  const [pin, setPin] = useState("");
-  const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
-
-  const unlock = async () => {
-    setStatus("submitting");
-    try {
-      const session = await api.createAdminSession(pin);
-      window.sessionStorage.setItem(tokenStorageKey, session.token);
-      onUnlocked(session.token);
-    } catch {
-      setStatus("error");
-    }
-  };
-
-  const form = (
-    <>
-      {overlay ? null : (
-        <>
-          <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-full bg-[#edf4ef] text-revive"><LockIcon /></div>
-          <h2 className="text-lg font-semibold tracking-[-0.01em]">Unlock operator workspace</h2>
-        </>
-      )}
-      <p className={cn("text-sm leading-6 text-muted", overlay ? "" : "mt-2")}>Use the demo admin PIN once to access customer records and live agent activity.</p>
-      <label className="mt-6 block text-sm font-medium" htmlFor="operator-pin">Admin PIN</label>
-      <input
-        autoComplete="one-time-code"
-        className="mt-2 h-10 w-full rounded-revive border border-line bg-white px-3 text-sm placeholder:text-[#a2aaa4]"
-        id="operator-pin"
-        inputMode="numeric"
-        onChange={(event) => setPin(event.target.value)}
-        type="password"
-        value={pin}
-      />
-      {status === "error" ? <p className="mt-2 text-sm text-[#a44646]">That PIN was not accepted.</p> : null}
-      <Button className="mt-5 w-full" disabled={pin === "" || status === "submitting"} onClick={() => void unlock()} variant="primary">
-        {status === "submitting" ? "Unlocking…" : "Unlock"}
-      </Button>
-    </>
-  );
-
-  if (overlay) {
-    return <Modal onClose={onClose ?? (() => undefined)} title="Unlock operator workspace">{form}</Modal>;
-  }
-
-  return (
-    <section className="mx-auto mt-20 w-full max-w-sm rounded-xl border border-line bg-panel p-7 shadow-panel">
-      {form}
-    </section>
-  );
-}
-
 export function DashboardApp({
   api = defaultApi,
   initialDate = nextOperationalDate(),
-  initialOperatorToken,
   eventSourceFactory = defaultEventSourceFactory,
 }: DashboardAppProps) {
   const [page, setPage] = useState<AppPage>("calendar");
@@ -118,8 +52,6 @@ export function DashboardApp({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [connection, setConnection] = useState<"connecting" | "connected" | "reconnecting" | "unavailable">("connecting");
-  const [operatorToken, setOperatorToken] = useState<string | undefined>(initialOperatorToken ?? storedOperatorToken);
-  const [calendarUnlockRequested, setCalendarUnlockRequested] = useState(false);
   const [domainVersion, setDomainVersion] = useState(0);
   const requestSequence = useRef(0);
   const range = useMemo(() => periodRange(anchorDate, calendarView), [anchorDate, calendarView]);
@@ -185,10 +117,7 @@ export function DashboardApp({
                   page === destination.id ? "bg-[#edf1ed] text-ink" : "text-muted hover:bg-[#f2f4f1] hover:text-ink",
                 )}
                 key={destination.id}
-                onClick={() => {
-                  setCalendarUnlockRequested(false);
-                  setPage(destination.id);
-                }}
+                onClick={() => setPage(destination.id)}
                 type="button"
               >
                 <Icon className="h-4 w-4" />
@@ -216,22 +145,17 @@ export function DashboardApp({
             onAnchorDateChange={setAnchorDate}
             onBarberFilterChange={setBarberFilter}
             onMutated={refreshCalendar}
-            onRequireOperator={() => setCalendarUnlockRequested(true)}
             onViewChange={setCalendarView}
-            operatorToken={operatorToken}
             view={calendarView}
           />
         ) : null}
-        {page !== "calendar" && operatorToken === undefined
-          ? <OperatorGate api={api} onUnlocked={setOperatorToken} />
-          : null}
-        {page === "agent" && operatorToken !== undefined ? (
-          <AgentPage api={api} refreshKey={domainVersion} token={operatorToken} />
+        {page === "agent" ? (
+          <AgentPage api={api} refreshKey={domainVersion} />
         ) : null}
-        {page === "customers" && operatorToken !== undefined ? (
-          <CustomersPage api={api} refreshKey={domainVersion} token={operatorToken} />
+        {page === "customers" ? (
+          <CustomersPage api={api} refreshKey={domainVersion} />
         ) : null}
-        {page === "settings" && operatorToken !== undefined ? (
+        {page === "settings" ? (
           <SettingsPage
             api={api}
             channelHealth={calendar?.channelHealth}
@@ -240,18 +164,6 @@ export function DashboardApp({
               await refreshCalendar();
             }}
             refreshKey={domainVersion}
-            token={operatorToken}
-          />
-        ) : null}
-        {page === "calendar" && operatorToken === undefined && calendarUnlockRequested ? (
-          <OperatorGate
-            api={api}
-            onClose={() => setCalendarUnlockRequested(false)}
-            onUnlocked={(token) => {
-              setOperatorToken(token);
-              setCalendarUnlockRequested(false);
-            }}
-            overlay
           />
         ) : null}
       </main>
