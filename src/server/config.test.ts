@@ -16,4 +16,14 @@ describe("loadConfig", () => {
   it("rejects an unknown persistence mode", () => {
     expect(() => loadConfig({ DATA_STORE: "spreadsheet" })).toThrow();
   });
+
+  it("derives a provider actor secret without admin-session configuration", () => {
+    const config = loadConfig({ ELEVENLABS_WEBHOOK_SECRET: "voice-secret" });
+
+    expect(config.voiceActorSecret).toBe("voice-secret");
+    expect("demoAdminPin" in config).toBe(false);
+    expect("adminSessionSecret" in config).toBe(false);
+    expect(loadConfig({}).voiceActorSecret).toEqual(expect.any(String));
+    expect(loadConfig({}).voiceActorSecret.length).toBeGreaterThan(0);
+  });
 });

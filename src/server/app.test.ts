@@ -67,7 +67,23 @@ describe("REVIVE Fastify API", () => {
         elevenlabs: "unconfigured",
       },
     });
-    expect(response.body).not.toContain("test-session-secret");
+    expect(response.body).not.toContain("test-voice-actor-secret");
+  });
+
+  it("opens local operator routes without a bearer session", async () => {
+    const responses = await Promise.all([
+      app.inject({ method: "GET", url: "/api/v1/customers" }),
+      app.inject({ method: "GET", url: "/api/v1/conversations" }),
+      app.inject({ method: "GET", url: "/api/v1/waitlist" }),
+      app.inject({ method: "GET", url: "/api/v1/activity" }),
+    ]);
+
+    expect(responses.map((response) => response.statusCode)).toEqual([200, 200, 200, 200]);
+    expect((await app.inject({
+      method: "POST",
+      url: "/api/v1/admin/session",
+      payload: { pin: "4242" },
+    })).statusCode).toBe(404);
   });
 
   it("returns an authoritative enriched calendar with active refill state", async () => {
