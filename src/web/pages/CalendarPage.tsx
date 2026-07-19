@@ -538,6 +538,8 @@ function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, on
 }) {
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [customerId, setCustomerId] = useState(appointment?.customerId ?? "");
+  const [addingCustomer, setAddingCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
   const [serviceId, setServiceId] = useState(appointment?.serviceId ?? calendar.services[0]?.id ?? "");
   const [barberId, setBarberId] = useState(appointment?.barberId ?? calendar.barbers[0]?.id ?? "");
   const [date, setDate] = useState(appointment === undefined
@@ -575,14 +577,18 @@ function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, on
     return () => { active = false; };
   }, [api, barberId, date, serviceId]);
 
+  const missingCustomer = !editing && (addingCustomer ? newCustomerName.trim() === "" : customerId === "");
   const submit = async () => {
-    if (startAt === "" || barberId === "" || (!editing && customerId === "")) return;
+    if (startAt === "" || barberId === "" || missingCustomer) return;
     setStatus(editing ? "Moving appointment…" : "Booking appointment…");
     try {
       if (editing) {
         await api.rescheduleAppointment(appointment.id, { barberId, startAt });
       } else {
-        await api.bookAppointment({ customerId, barberId, serviceId, startAt });
+        const bookingCustomerId = addingCustomer
+          ? (await api.createCustomer({ name: newCustomerName.trim() })).id
+          : customerId;
+        await api.bookAppointment({ customerId: bookingCustomerId, barberId, serviceId, startAt });
       }
       await onSuccess();
       onClose();
@@ -606,18 +612,43 @@ function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, on
             <strong>{appointment.customerName}</strong><span className="text-muted"> · {appointment.serviceName}</span>
           </div>
         ) : (
-          <label className="block text-sm font-medium">
-            Customer
-            <select className="mt-1.5 h-10 w-full rounded-revive border border-line bg-white px-3 text-sm" onChange={(event) => setCustomerId(event.target.value)} value={customerId}>
-              <option value="">Select a customer</option>
-              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
-            </select>
-          </label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">
+              Customer
+              <select
+                className="field-select mt-1.5 h-10 w-full rounded-revive border border-line bg-white pl-3 text-sm"
+                onChange={(event) => {
+                  if (event.target.value === "__new__") {
+                    setAddingCustomer(true);
+                    setCustomerId("");
+                  } else {
+                    setAddingCustomer(false);
+                    setCustomerId(event.target.value);
+                  }
+                }}
+                value={addingCustomer ? "__new__" : customerId}
+              >
+                <option value="">Select a customer</option>
+                {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+                <option value="__new__">+ Add new customer…</option>
+              </select>
+            </label>
+            {addingCustomer ? (
+              <input
+                aria-label="New customer name"
+                autoFocus
+                className="h-10 w-full rounded-revive border border-line bg-white px-3 text-sm placeholder:text-[#9fa69f]"
+                onChange={(event) => setNewCustomerName(event.target.value)}
+                placeholder="New customer name"
+                value={newCustomerName}
+              />
+            ) : null}
+          </div>
         )}
         {!editing ? (
           <label className="block text-sm font-medium">
             Service
-            <select className="mt-1.5 h-10 w-full rounded-revive border border-line bg-white px-3 text-sm" onChange={(event) => setServiceId(event.target.value)} value={serviceId}>
+            <select className="field-select mt-1.5 h-10 w-full rounded-revive border border-line bg-white pl-3 text-sm" onChange={(event) => setServiceId(event.target.value)} value={serviceId}>
               {calendar.services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
             </select>
           </label>
@@ -625,7 +656,7 @@ function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, on
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm font-medium">
             Barber
-            <select className="mt-1.5 h-10 w-full rounded-revive border border-line bg-white px-3 text-sm" onChange={(event) => setBarberId(event.target.value)} value={barberId}>
+            <select className="field-select mt-1.5 h-10 w-full rounded-revive border border-line bg-white pl-3 text-sm" onChange={(event) => setBarberId(event.target.value)} value={barberId}>
               {eligibleBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.name}</option>)}
             </select>
           </label>
@@ -636,15 +667,15 @@ function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, on
         </div>
         <label className="block text-sm font-medium">
           Time
-          <select className="mt-1.5 h-10 w-full rounded-revive border border-line bg-white px-3 text-sm" onChange={(event) => setStartAt(event.target.value)} value={startAt}>
+          <select className="field-select mt-1.5 h-10 w-full rounded-revive border border-line bg-white pl-3 text-sm" onChange={(event) => setStartAt(event.target.value)} value={startAt}>
             <option value="">Select a live opening</option>
             {slots.map((slot) => <option key={slot.startAt} value={slot.startAt}>{slot.localTime}</option>)}
           </select>
         </label>
         {status === "" ? null : <p className={cn("text-sm", status.includes("taken") ? "text-[#a44646]" : "text-muted")}>{status}</p>}
-        <div className="flex justify-end gap-2 border-t border-line pt-4">
+        <div className="flex justify-end gap-2 pt-1">
           <Button onClick={onClose} variant="ghost">Cancel</Button>
-          <Button disabled={startAt === "" || (!editing && customerId === "")} onClick={() => void submit()} variant="primary">
+          <Button disabled={startAt === "" || missingCustomer} onClick={() => void submit()} variant="primary">
             {editing ? "Confirm new time" : "Confirm appointment"}
           </Button>
         </div>

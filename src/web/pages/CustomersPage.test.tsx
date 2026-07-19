@@ -203,6 +203,7 @@ function api(): ReviveApi {
       details.set(id, { ...current, notes: [note, ...current.notes] });
       return note;
     }),
+    createCustomer: vi.fn(async () => ({ id: "new-customer", name: "New Customer", contactPreference: "telegram" as const, identitySummary: "No linked channel", activeWaitlistCount: 0, bookingState: "not_eligible" as const, bookingStateLabel: "Not eligible", visitCount: 0, outreachEligible: false, matchReason: "New customer." })),
     getConversations: vi.fn(async () => []),
     getConversation: vi.fn(async () => { throw new Error("unused"); }),
     getWaitlist: vi.fn(async () => []),

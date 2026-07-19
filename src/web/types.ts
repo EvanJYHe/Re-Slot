@@ -262,6 +262,7 @@ export interface ReviveApi {
   patchSettings(patch: Partial<SchedulingSettings>): Promise<SchedulingSettings>;
   resetDemo(): Promise<{ status: string; demoDate: string }>;
   getCustomers(query: string): Promise<CustomerSummary[]>;
+  createCustomer(input: { name: string; contactPreference?: "telegram" | "voice"; phone?: string }): Promise<CustomerSummary>;
   getCustomer(id: string): Promise<CustomerDetail>;
   patchCustomer(id: string, patch: Partial<CustomerDetail["preferences"]>): Promise<CustomerDetail>;
   addCustomerNote(id: string, text: string): Promise<CustomerNote>;

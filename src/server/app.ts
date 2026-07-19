@@ -87,6 +87,12 @@ const customerNoteSchema = z.object({
   text: z.string().trim().min(1).max(500),
 }).strict();
 
+const customerCreateSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  contactPreference: z.enum(["telegram", "voice"]).optional(),
+  phone: z.string().trim().min(1).max(40).optional(),
+}).strict();
+
 const waitlistPatchSchema = z.object({
   status: z.enum(["active", "paused", "withdrawn"]).optional(),
   operatorNote: z.string().trim().max(500).nullable().optional(),
@@ -380,6 +386,34 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   app.get("/api/v1/customers", async (request) => {
     const query = z.object({ q: z.string().max(100).optional() }).strict().parse(request.query);
     return projectCustomerList(await options.store.read(), query.q ?? "");
+  });
+
+  app.post("/api/v1/customers", async (request, reply) => {
+    const input = customerCreateSchema.parse(request.body);
+    const created = await options.store.transaction((state) => {
+      const customer = {
+        id: randomUUID(),
+        name: input.name,
+        contactPreference: input.contactPreference ?? "telegram",
+        earlierMoveConsent: false,
+        flexibleBarberPreference: false,
+        pastCustomerOptIn: false,
+        ...(input.phone === undefined ? {} : { phone: input.phone }),
+        createdAt: clock(),
+        updatedAt: clock(),
+      };
+      state.customers.push(customer);
+      state.events.push({
+        id: randomUUID(),
+        type: "customer.created",
+        aggregateId: customer.id,
+        occurredAt: clock(),
+        data: { customerId: customer.id },
+      });
+      return customer;
+    });
+    const summary = projectCustomerList(await options.store.read()).find((entry) => entry.id === created.id);
+    return reply.status(201).send(summary);
   });
 
   app.get<{ Params: { id: string } }>("/api/v1/customers/:id", async (request, reply) => {

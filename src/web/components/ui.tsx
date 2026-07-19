@@ -129,7 +129,7 @@ export function Modal({ title, children, onClose }: {
     <div className="fixed inset-0 z-50 grid place-items-center px-4" onMouseDown={(event) => {
       if (event.currentTarget === event.target) onClose();
     }} role="presentation">
-      <section aria-label={title} aria-modal="true" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-line bg-panel shadow-[0_16px_50px_-12px_rgba(20,30,25,0.45)]" role="dialog">
+      <section aria-label={title} aria-modal="true" className="modal-panel max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-line bg-panel shadow-[0_16px_50px_-12px_rgba(20,30,25,0.45)]" role="dialog">
         <div className="flex h-16 items-center justify-between border-b border-line px-5">
           <h2 className="text-base font-semibold">{title}</h2>
           <IconButton aria-label={`Close ${title}`} onClick={onClose}><XIcon /></IconButton>
