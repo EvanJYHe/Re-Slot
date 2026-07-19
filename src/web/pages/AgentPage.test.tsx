@@ -1,0 +1,251 @@
+// @vitest-environment jsdom
+
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { AgentPage } from "./AgentPage.js";
+import type {
+  ActivityItem,
+  ConversationDetail,
+  ConversationSummary,
+  OperatorWaitlistEntry,
+  ReviveApi,
+  SchedulingSettings,
+} from "../types.js";
+
+const settings: SchedulingSettings = {
+  timezone: "America/Toronto",
+  refillEnabled: true,
+  moveEarlierEnabled: true,
+  moveLimit: 3,
+  allowAlternateBarbers: true,
+  waitlistEnabled: true,
+  pastCustomerOutreachEnabled: true,
+  maxDiscountPercent: 15,
+  offerExpirySeconds: 120,
+};
+
+const conversations: ConversationSummary[] = [
+  {
+    id: "conversation-alex",
+    customerId: "alex",
+    customerName: "Alex",
+    channel: "telegram",
+    direction: "outbound",
+    state: "active",
+    preview: "Yes, please reserve it.",
+    updatedAt: "2026-07-20T22:02:00.000Z",
+    hasException: false,
+  },
+  {
+    id: "conversation-sarah",
+    customerId: "sarah",
+    customerName: "Sarah",
+    channel: "voice",
+    direction: "outbound",
+    state: "completed",
+    preview: "Yes, move me to five.",
+    updatedAt: "2026-07-20T21:02:00.000Z",
+    hasException: false,
+  },
+];
+
+const detail: ConversationDetail = {
+  conversation: conversations[0]!,
+  events: [
+    {
+      id: "event-1",
+      kind: "message",
+      direction: "outbound",
+      speaker: "agent",
+      text: "A 6 PM chair opened with Jeremy.",
+      occurredAt: "2026-07-20T22:00:00.000Z",
+    },
+    {
+      id: "event-2",
+      kind: "message",
+      direction: "inbound",
+      speaker: "customer",
+      text: "Is the haircut still forty-five dollars?",
+      occurredAt: "2026-07-20T22:01:00.000Z",
+      metadata: { internalTool: "never render this JSON" },
+    },
+    {
+      id: "event-3",
+      kind: "action",
+      speaker: "system",
+      text: "REVIVE checked Jeremy's live availability.",
+      occurredAt: "2026-07-20T22:01:30.000Z",
+    },
+    {
+      id: "event-4",
+      kind: "message",
+      direction: "outbound",
+      speaker: "agent",
+      text: "Yes — the signature haircut is $45.",
+      occurredAt: "2026-07-20T22:02:00.000Z",
+    },
+  ],
+  activity: [{
+    id: "activity-1",
+    type: "offer.delivered",
+    occurredAt: "2026-07-20T22:00:00.000Z",
+    message: "REVIVE delivered an appointment offer to Alex via Telegram.",
+    customerId: "alex",
+    customerName: "Alex",
+  }],
+  context: {
+    customer: {
+      id: "alex",
+      name: "Alex",
+      contactPreference: "telegram",
+      identitySummary: "Telegram linked",
+    },
+    appointment: {
+      barberName: "Jeremy",
+      serviceName: "Signature haircut",
+      startAt: "2026-07-20T22:00:00.000Z",
+      endAt: "2026-07-20T23:00:00.000Z",
+      status: "delivered",
+    },
+    automation: {
+      state: "Waiting for Alex",
+      offerStatus: "delivered",
+      expiresAt: "2026-07-20T22:04:00.000Z",
+      refillStatus: "awaiting_offer",
+      moveDepth: 1,
+    },
+    privateNote: {
+      id: "note-alex",
+      text: "Usually available after work.",
+      author: "operator",
+      createdAt: "2026-07-18T16:00:00.000Z",
+    },
+  },
+};
+
+const waitlist: OperatorWaitlistEntry[] = [{
+  id: "waitlist-alex",
+  customerId: "alex",
+  customerName: "Alex",
+  serviceId: "haircut",
+  serviceName: "Signature haircut",
+  barberId: "jeremy",
+  barberName: "Jeremy",
+  date: "2026-07-20",
+  earliestStart: "2026-07-20T21:00:00.000Z",
+  latestStart: "2026-07-20T23:00:00.000Z",
+  status: "active",
+  channel: "telegram",
+  outreachState: "not_contacted",
+  createdAt: "2026-07-18T16:00:00.000Z",
+}];
+
+const activity: ActivityItem[] = [{
+  id: "activity-1",
+  type: "appointment.cancelled",
+  occurredAt: "2026-07-20T21:00:00.000Z",
+  message: "Josh's appointment was cancelled; REVIVE opened refill work.",
+  customerId: "josh",
+  customerName: "Josh",
+}];
+
+function api(overrides: Partial<ReviveApi> = {}): ReviveApi {
+  return {
+    getCalendar: vi.fn(async () => { throw new Error("unused"); }),
+    getCalendarRange: vi.fn(async () => { throw new Error("unused"); }),
+    getAvailability: vi.fn(async () => { throw new Error("unused"); }),
+    getSettings: vi.fn(async () => settings),
+    patchSettings: vi.fn(async (patch) => ({ ...settings, ...patch })),
+    createAdminSession: vi.fn(async () => ({ token: "operator-token" })),
+    resetDemo: vi.fn(async () => ({ status: "reset", demoDate: "2026-07-20" })),
+    getCustomers: vi.fn(async () => []),
+    getCustomer: vi.fn(async () => { throw new Error("unused"); }),
+    patchCustomer: vi.fn(async () => { throw new Error("unused"); }),
+    addCustomerNote: vi.fn(async () => { throw new Error("unused"); }),
+    getConversations: vi.fn(async () => conversations),
+    getConversation: vi.fn(async () => detail),
+    getWaitlist: vi.fn(async () => waitlist),
+    patchWaitlist: vi.fn(async (id, patch) => ({ ...waitlist[0]!, id, ...patch } as OperatorWaitlistEntry)),
+    getActivity: vi.fn(async () => activity),
+    bookAppointment: vi.fn(async () => { throw new Error("unused"); }),
+    rescheduleAppointment: vi.fn(async () => { throw new Error("unused"); }),
+    cancelAppointment: vi.fn(async () => { throw new Error("unused"); }),
+    ...overrides,
+  };
+}
+
+afterEach(cleanup);
+
+describe("AgentPage", () => {
+  it("renders real conversations in the locked list, ledger, and context structure", async () => {
+    render(<AgentPage api={api()} refreshKey={0} token="operator-token" />);
+
+    expect(await screen.findByRole("heading", { name: "Conversations" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Conversation" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Context" })).toBeInTheDocument();
+    expect(screen.getByText("Telegram · Outbound")).toBeInTheDocument();
+    expect(screen.getByText("Voice · Outbound")).toBeInTheDocument();
+
+    expect(await screen.findByText("A 6 PM chair opened with Jeremy.")).toBeInTheDocument();
+    const question = screen.getByText("Is the haircut still forty-five dollars?");
+    const answer = screen.getByText("Yes — the signature haircut is $45.");
+    expect(question.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("REVIVE checked Jeremy's live availability.")).toBeInTheDocument();
+    expect(screen.queryByText(/never render this JSON/i)).not.toBeInTheDocument();
+
+    const context = screen.getByRole("complementary", { name: "Context" });
+    for (const label of ["Customer", "Appointment", "Automation", "Private note"]) {
+      expect(within(context).getByRole("heading", { name: label })).toBeInTheDocument();
+    }
+    expect(within(context).getByText("Waiting for Alex")).toBeInTheDocument();
+    expect(within(context).getByText("Usually available after work.")).toBeInTheDocument();
+  });
+
+  it("shows an honest empty state when no provider interactions exist", async () => {
+    render(<AgentPage api={api({ getConversations: vi.fn(async () => []) })} refreshKey={0} token="operator-token" />);
+
+    expect(await screen.findByText("Real Telegram messages and voice calls will appear here as they happen.")).toBeInTheDocument();
+    expect(screen.queryByText("Sample conversation")).not.toBeInTheDocument();
+  });
+
+  it("supervises waitlist state and private notes without exposing provider controls", async () => {
+    const user = userEvent.setup();
+    const client = api();
+    render(<AgentPage api={client} refreshKey={0} token="operator-token" />);
+
+    await user.click(screen.getByRole("button", { name: "Waitlist" }));
+    const panel = await screen.findByRole("region", { name: "Open waitlist" });
+    expect(within(panel).getByText("Alex")).toBeInTheDocument();
+    expect(within(panel).getByText("Signature haircut · Jeremy")).toBeInTheDocument();
+
+    await user.click(within(panel).getByRole("button", { name: "Pause Alex" }));
+    await waitFor(() => expect(client.patchWaitlist).toHaveBeenCalledWith(
+      "waitlist-alex",
+      { status: "paused" },
+      "operator-token",
+    ));
+
+    await user.click(within(panel).getByRole("button", { name: "Add note for Alex" }));
+    await user.type(within(panel).getByLabelText("Private note for Alex"), "  Call after 4 PM.  ");
+    await user.click(within(panel).getByRole("button", { name: "Save note for Alex" }));
+    await waitFor(() => expect(client.patchWaitlist).toHaveBeenCalledWith(
+      "waitlist-alex",
+      { operatorNote: "Call after 4 PM." },
+      "operator-token",
+    ));
+
+    await user.click(within(panel).getByRole("button", { name: "Remove Alex" }));
+    await user.click(within(panel).getByRole("button", { name: "Confirm remove Alex" }));
+    await waitFor(() => expect(client.patchWaitlist).toHaveBeenCalledWith(
+      "waitlist-alex",
+      { status: "withdrawn" },
+      "operator-token",
+    ));
+
+    await user.click(screen.getByRole("button", { name: "Activity" }));
+    expect(await screen.findByText("Josh's appointment was cancelled; REVIVE opened refill work.")).toBeInTheDocument();
+    expect(screen.queryByText(/API key|raw webhook|voice laboratory/i)).not.toBeInTheDocument();
+  });
+});

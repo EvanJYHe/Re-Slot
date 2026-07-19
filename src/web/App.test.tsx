@@ -150,10 +150,12 @@ describe("DashboardApp shell", () => {
     expect(await screen.findByRole("heading", { name: "Agent" })).toBeInTheDocument();
     expect(client.createAdminSession).toHaveBeenCalledWith("4242");
     expect(window.sessionStorage.getItem("revive.operator-token")).toBe("operator-token");
+    await waitFor(() => expect(client.getConversations).toHaveBeenCalledWith("operator-token"));
 
     await user.click(screen.getByRole("button", { name: "Customers" }));
     expect(screen.getByRole("heading", { name: "Customers" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Unlock operator workspace" })).not.toBeInTheDocument();
+    await waitFor(() => expect(client.getCustomers).toHaveBeenCalledWith("", "operator-token"));
   });
 
   it("reports SSE connection state and refetches authoritative calendar data", async () => {
@@ -170,5 +172,28 @@ describe("DashboardApp shell", () => {
     expect(await screen.findByText("Live updates connected")).toBeInTheDocument();
     listeners.get("domain")?.();
     await waitFor(() => expect(client.getCalendarRange).toHaveBeenCalledTimes(2));
+  });
+
+  it("invalidates the active protected workspace after a domain event", async () => {
+    const user = userEvent.setup();
+    const listeners = new Map<string, () => void>();
+    const source: EventSourceLike = {
+      addEventListener: (type, listener) => { listeners.set(type, listener); },
+      close: vi.fn(),
+    };
+    const client = api();
+    render(
+      <DashboardApp
+        api={client}
+        initialDate="2026-07-20"
+        initialOperatorToken="operator-token"
+        eventSourceFactory={() => source}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Agent" }));
+    await waitFor(() => expect(client.getConversations).toHaveBeenCalledTimes(1));
+    listeners.get("domain")?.();
+    await waitFor(() => expect(client.getConversations).toHaveBeenCalledTimes(2));
   });
 });

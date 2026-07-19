@@ -11,7 +11,10 @@ import {
 } from "./components/icons.js";
 import { Button, Modal, StatusDot, cn } from "./components/ui.js";
 import { periodRange, type CalendarView } from "./lib/dates.js";
+import { AgentPage } from "./pages/AgentPage.js";
 import { CalendarPage } from "./pages/CalendarPage.js";
+import { CustomersPage } from "./pages/CustomersPage.js";
+import { SettingsPage } from "./pages/SettingsPage.js";
 import type { CalendarResponse, EventSourceLike, ReviveApi } from "./types.js";
 
 export type AppPage = "calendar" | "agent" | "customers" | "settings";
@@ -101,23 +104,6 @@ function OperatorGate({ api, onUnlocked, overlay = false, onClose }: {
   );
 }
 
-function ProtectedPlaceholder({ page }: { page: Exclude<AppPage, "calendar"> }) {
-  const label = destinations.find((destination) => destination.id === page)!.label;
-  const detail = page === "agent"
-    ? "Real Telegram conversations and voice calls will appear here as they happen."
-    : page === "customers"
-      ? "Customer preferences, appointments, waitlist entries, and private notes."
-      : "Automation policies, provider health, and demo reset.";
-  return (
-    <section>
-      <div className="border-b border-line px-6 py-5 lg:px-8">
-        <h2 className="text-xl font-semibold tracking-[-0.02em]">{label}</h2>
-        <p className="mt-1 text-sm text-muted">{detail}</p>
-      </div>
-    </section>
-  );
-}
-
 export function DashboardApp({
   api = defaultApi,
   initialDate = nextOperationalDate(),
@@ -134,6 +120,7 @@ export function DashboardApp({
   const [connection, setConnection] = useState<"connecting" | "connected" | "reconnecting" | "unavailable">("connecting");
   const [operatorToken, setOperatorToken] = useState<string | undefined>(initialOperatorToken ?? storedOperatorToken);
   const [calendarUnlockRequested, setCalendarUnlockRequested] = useState(false);
+  const [domainVersion, setDomainVersion] = useState(0);
   const requestSequence = useRef(0);
   const range = useMemo(() => periodRange(anchorDate, calendarView), [anchorDate, calendarView]);
 
@@ -166,7 +153,10 @@ export function DashboardApp({
     }
     source.addEventListener("open", () => setConnection("connected"));
     source.addEventListener("error", () => setConnection("reconnecting"));
-    source.addEventListener("domain", () => { void refreshCalendarRef.current(); });
+    source.addEventListener("domain", () => {
+      setDomainVersion((version) => version + 1);
+      void refreshCalendarRef.current();
+    });
     return () => source.close();
   }, [eventSourceFactory]);
 
@@ -235,7 +225,24 @@ export function DashboardApp({
         {page !== "calendar" && operatorToken === undefined
           ? <OperatorGate api={api} onUnlocked={setOperatorToken} />
           : null}
-        {page !== "calendar" && operatorToken !== undefined ? <ProtectedPlaceholder page={page} /> : null}
+        {page === "agent" && operatorToken !== undefined ? (
+          <AgentPage api={api} refreshKey={domainVersion} token={operatorToken} />
+        ) : null}
+        {page === "customers" && operatorToken !== undefined ? (
+          <CustomersPage api={api} refreshKey={domainVersion} token={operatorToken} />
+        ) : null}
+        {page === "settings" && operatorToken !== undefined ? (
+          <SettingsPage
+            api={api}
+            channelHealth={calendar?.channelHealth}
+            onReset={async () => {
+              setDomainVersion((version) => version + 1);
+              await refreshCalendar();
+            }}
+            refreshKey={domainVersion}
+            token={operatorToken}
+          />
+        ) : null}
         {page === "calendar" && operatorToken === undefined && calendarUnlockRequested ? (
           <OperatorGate
             api={api}
