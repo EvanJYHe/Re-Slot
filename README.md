@@ -67,7 +67,7 @@ Keep scheduling mutations inside the deterministic engine—Backboard, Telegram,
 - Use `DATA_STORE=memory` for isolated feature work and repeatable tests.
 - Use `DATA_STORE=mongodb` only with a securely shared Atlas URI and an Atlas Network Access entry for your current IP.
 - Use Settings → **Reset demo week** to restore the seeded Josh/Sarah/Alex scenario.
-- Telegram and ElevenLabs cannot reach localhost directly. Live inbound testing requires a temporary HTTPS tunnel to port 3100 and matching provider webhook URLs.
+- Telegram can run locally with `TELEGRAM_LOCAL_POLLING=true`; ElevenLabs inbound calls still require a temporary HTTPS tunnel to port 3100.
 
 ## Front-desk workspace
 
@@ -84,7 +84,7 @@ Calendar, Agent, Customers, and Settings open directly on localhost. Reset seeds
 
 Keep real credentials only in the ignored local `.env`. Never commit them.
 
-Telegram and ElevenLabs cannot call a loopback address. For a live provider demo, expose port 3100 through a temporary HTTPS tunnel, set `PUBLIC_BASE_URL` to that tunnel URL, and remove the tunnel when the demo ends. The operator workspace itself remains local.
+ElevenLabs cannot call a loopback address. For live inbound voice, expose port 3100 through a temporary HTTPS tunnel, set `PUBLIC_BASE_URL` to that tunnel URL, and remove the tunnel when the demo ends. Telegram can instead use the local polling mode below. The operator workspace itself remains local.
 
 ### Backboard
 
@@ -98,7 +98,20 @@ Copy the returned assistant ID into `BACKBOARD_ASSISTANT_ID`. Each customer rece
 
 ### Telegram
 
-After `PUBLIC_BASE_URL` is the temporary HTTPS tunnel URL:
+For local development, set this in `.env` and start the normal development process:
+
+```bash
+TELEGRAM_LOCAL_POLLING=true
+npm run dev
+```
+
+Re-Slot removes the bot's remote webhook without dropping pending messages, then long-polls Telegram and sends every update through the same authenticated conversation handler used in production. Stop the local process before starting another poller. When returning to a public deployment, unset `TELEGRAM_LOCAL_POLLING` and register the HTTPS webhook again.
+
+If only `api.telegram.org` fails to resolve on the local network, `TELEGRAM_API_IP` can temporarily pin Telegram's current IPv4 address. This override affects only the Telegram client and keeps normal hostname-based TLS verification enabled. Remove it once system DNS is working again.
+
+The equivalent temporary override for a DNS failure affecting the scheduling assistant is `BACKBOARD_API_IP`. Backboard uses a load balancer with short-lived addresses, so refresh this value through a trusted DNS resolver and remove it when local DNS recovers.
+
+For public webhook mode, set `PUBLIC_BASE_URL` to the HTTPS deployment or tunnel URL, then run:
 
 ```bash
 npm run setup:telegram

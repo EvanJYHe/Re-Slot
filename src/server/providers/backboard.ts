@@ -1,3 +1,4 @@
+import { Agent } from "undici";
 import { z } from "zod";
 
 import type { ActorContext } from "../../domain/types.js";
@@ -15,6 +16,7 @@ interface BackboardClientOptions {
   apiKey: string;
   assistantId: string;
   fetchImpl?: typeof fetch;
+  apiIp?: string;
   systemPrompt?: string;
 }
 
@@ -49,15 +51,37 @@ const responseSchema = z.object({
 
 const DEFAULT_SYSTEM_PROMPT = `You are Re-Slot, a concise Toronto barbershop scheduling operator.
 Use tools for all live availability, appointment, offer, and settings facts. Never invent a booking.
+When a scheduling tool reports that Re-Slot is closed, repeat its Monday-through-Friday, 9:00 AM-to-5:00 PM hours clearly.
 Before booking, rescheduling, changing barbers, or accepting an offer, summarize the exact change and ask for clear confirmation.
 A direct cancellation of one identified appointment is explicit consent and can be completed immediately.
 Keep replies warm, brief, and specific. Never mention internal IDs, tool names, or implementation details.`;
 
 export class BackboardClient {
   private readonly fetchImpl: typeof fetch;
+  private readonly dispatcher: Agent | undefined;
 
   constructor(private readonly options: BackboardClientOptions) {
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.dispatcher = options.fetchImpl === undefined && options.apiIp !== undefined
+      ? new Agent({
+          connect: {
+            lookup: (_hostname, lookupOptions, callback) => {
+              if (lookupOptions.all) {
+                callback(null, [{ address: options.apiIp!, family: 4 }]);
+                return;
+              }
+              callback(null, options.apiIp!, 4);
+            },
+          },
+        })
+      : undefined;
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, {
+      ...init,
+      ...(this.dispatcher === undefined ? {} : { dispatcher: this.dispatcher }),
+    } as RequestInit));
+  }
+
+  async close(): Promise<void> {
+    await this.dispatcher?.close();
   }
 
   async reply(input: BackboardReplyInput): Promise<BackboardReply> {

@@ -41,7 +41,7 @@ export interface ReviveRuntime {
   engine: ReviveEngine;
   storeKind: "memory" | "mongodb";
   workerEnabled: boolean;
-  configureWebhooks(): Promise<{ telegram: "registered" | "skipped" | "failed" }>;
+  configureWebhooks(): Promise<{ telegram: "registered" | "polling" | "skipped" | "failed" }>;
   startWorker(): void;
   close(): Promise<void>;
 }
@@ -119,12 +119,14 @@ export async function createRuntime(
     : new BackboardClient({
         apiKey: config.backboardApiKey,
         assistantId: config.backboardAssistantId,
+        ...(config.backboardApiIp === undefined ? {} : { apiIp: config.backboardApiIp }),
         ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
       });
   const telegram = config.telegramBotToken === undefined
     ? undefined
     : new TelegramApiClient({
         botToken: config.telegramBotToken,
+        ...(config.telegramApiIp === undefined ? {} : { apiIp: config.telegramApiIp }),
         ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
       });
   const telegramWebhook = backboard === undefined
@@ -194,6 +196,8 @@ export async function createRuntime(
 
   let workerTimer: NodeJS.Timeout | undefined;
   let workerRunning = false;
+  let telegramPollingController: AbortController | undefined;
+  let telegramPollingTask: Promise<void> | undefined;
   let closed = false;
   const tick = async () => {
     if (worker === undefined || workerRunning || closed) return;
@@ -215,7 +219,61 @@ export async function createRuntime(
     void tick();
     workerTimer = setInterval(() => void tick(), options.workerIntervalMs ?? 1_000);
   };
+
+  const startTelegramPolling = async (): Promise<{ telegram: "polling" | "failed" }> => {
+    if (telegramPollingTask !== undefined) return { telegram: "polling" };
+    if (telegram === undefined || telegramWebhook === undefined) return { telegram: "failed" };
+    telegramPollingController = new AbortController();
+    const signal = telegramPollingController.signal;
+    telegramPollingTask = (async () => {
+      let offset: number | undefined;
+      let webhookRemoved = false;
+      app.log.info("Telegram local polling worker started");
+      while (!signal.aborted && !closed) {
+        try {
+          if (!webhookRemoved) {
+            await telegram.deleteWebhook(false);
+            webhookRemoved = true;
+            app.log.info("Telegram remote webhook removed; receiving updates locally");
+          }
+          const updates = await telegram.getUpdates(offset, 25, signal);
+          for (const update of updates) {
+            offset = Math.max(offset ?? 0, update.update_id + 1);
+            try {
+              await telegramWebhook.handle(update);
+            } catch (error) {
+              app.log.error(
+                {
+                  updateId: update.update_id,
+                  error: error instanceof Error ? error.name : "TelegramUpdateError",
+                },
+                "Telegram local update failed",
+              );
+            }
+          }
+        } catch (error) {
+          if (signal.aborted || closed) break;
+          app.log.error(
+            { error: error instanceof Error ? error.message : "TelegramPollingError" },
+            "Telegram local polling failed; retrying",
+          );
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, 1_000);
+            signal.addEventListener("abort", () => {
+              clearTimeout(timer);
+              resolve();
+            }, { once: true });
+          });
+        }
+      }
+    })();
+    return { telegram: "polling" };
+  };
+
   const configureWebhooks = async () => {
+    if (config.nodeEnv !== "production" && config.telegramLocalPolling) {
+      return startTelegramPolling();
+    }
     const publicUrl = new URL(config.publicBaseUrl);
     if (
       telegram === undefined
@@ -253,6 +311,10 @@ export async function createRuntime(
       if (closed) return;
       closed = true;
       if (workerTimer !== undefined) clearInterval(workerTimer);
+      telegramPollingController?.abort();
+      await telegramPollingTask?.catch(() => undefined);
+      await telegram?.close();
+      await backboard?.close();
       await app.close();
       await storeHandle.close();
     },

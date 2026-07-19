@@ -179,6 +179,7 @@ function api(): ReviveApi {
     getCustomer: vi.fn(async () => { throw new Error("unused"); }),
     patchCustomer: vi.fn(async () => { throw new Error("unused"); }),
     addCustomerNote: vi.fn(async () => { throw new Error("unused"); }),
+    createCustomer: vi.fn(async () => ({ id: "new-customer", name: "New Customer", contactPreference: "telegram" as const, identitySummary: "No linked channel", activeWaitlistCount: 0, bookingState: "not_eligible" as const, bookingStateLabel: "Not eligible", visitCount: 0, outreachEligible: false, matchReason: "New customer." })),
     getConversations: vi.fn(async () => []),
     getConversation: vi.fn(async () => { throw new Error("unused"); }),
     getWaitlist: vi.fn(async () => []),
@@ -357,5 +358,29 @@ describe("CalendarPage", () => {
 
     expect(await within(dialog).findByText("That time was just taken.")).toBeInTheDocument();
     expect(dialog).toBeInTheDocument();
+  });
+
+  it("shows the shop hours when a weekend date is selected", async () => {
+    const user = userEvent.setup();
+    const client = api();
+    client.getAvailability = vi.fn(async ({ date }) => ({
+      date,
+      timezone: "America/Toronto",
+      service: { id: "haircut", name: "Signature haircut", durationMinutes: 60 },
+      slots: [],
+      closed: true,
+      message: "We're closed at that time. We're open Monday through Friday from 9:00 AM to 5:00 PM.",
+    }));
+    render(<Harness client={client} />);
+
+    await user.click(screen.getByRole("button", { name: "New appointment" }));
+    const dialog = screen.getByRole("dialog", { name: "New appointment" });
+    await user.clear(within(dialog).getByLabelText("Date"));
+    await user.type(within(dialog).getByLabelText("Date"), "2026-07-25");
+
+    expect(await within(dialog).findByText(
+      "We're closed at that time. We're open Monday through Friday from 9:00 AM to 5:00 PM.",
+    )).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Confirm appointment" })).toBeDisabled();
   });
 });

@@ -21,7 +21,7 @@ describe("BackboardClient", () => {
         status: "COMPLETED",
         thread_id: "thread-alex",
         content: "You have one appointment with Jeremy at 6 PM.",
-        tool_calls: [],
+        tool_calls: null,
       },
     ];
     const fetchImpl = async (input: string | URL | Request, init?: RequestInit) => {

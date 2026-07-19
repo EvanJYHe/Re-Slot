@@ -26,8 +26,11 @@ const environmentSchema = z.object({
   MONGODB_DB: z.string().min(1).default("revive"),
   TELEGRAM_BOT_TOKEN: optionalString,
   TELEGRAM_WEBHOOK_SECRET: optionalString,
+  TELEGRAM_LOCAL_POLLING: booleanString.default(false),
+  TELEGRAM_API_IP: z.preprocess(emptyToUndefined, z.ipv4().optional()),
   BACKBOARD_API_KEY: optionalString,
   BACKBOARD_ASSISTANT_ID: optionalString,
+  BACKBOARD_API_IP: z.preprocess(emptyToUndefined, z.ipv4().optional()),
   ELEVENLABS_API_KEY: optionalString,
   ELEVENLABS_AGENT_ID: optionalString,
   ELEVENLABS_PHONE_NUMBER_ID: optionalString,
@@ -47,8 +50,11 @@ export interface AppConfig {
   mongoDatabase: string;
   telegramBotToken: string | undefined;
   telegramWebhookSecret: string | undefined;
+  telegramLocalPolling: boolean;
+  telegramApiIp: string | undefined;
   backboardApiKey: string | undefined;
   backboardAssistantId: string | undefined;
+  backboardApiIp: string | undefined;
   elevenLabsApiKey: string | undefined;
   elevenLabsAgentId: string | undefined;
   elevenLabsPhoneNumberId: string | undefined;
@@ -74,8 +80,11 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     mongoDatabase: parsed.MONGODB_DB,
     telegramBotToken: parsed.TELEGRAM_BOT_TOKEN,
     telegramWebhookSecret: parsed.TELEGRAM_WEBHOOK_SECRET,
+    telegramLocalPolling: parsed.TELEGRAM_LOCAL_POLLING,
+    telegramApiIp: parsed.TELEGRAM_API_IP,
     backboardApiKey: parsed.BACKBOARD_API_KEY,
     backboardAssistantId: parsed.BACKBOARD_ASSISTANT_ID,
+    backboardApiIp: parsed.BACKBOARD_API_IP,
     elevenLabsApiKey: parsed.ELEVENLABS_API_KEY,
     elevenLabsAgentId: parsed.ELEVENLABS_AGENT_ID,
     elevenLabsPhoneNumberId: parsed.ELEVENLABS_PHONE_NUMBER_ID,

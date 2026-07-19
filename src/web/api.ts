@@ -67,6 +67,10 @@ export const defaultApi: ReviveApi = {
   getCustomers: (query) => request<CustomerSummary[]>(
     `/api/v1/customers?q=${encodeURIComponent(query)}`,
   ),
+  createCustomer: (input) => request<CustomerSummary>("/api/v1/customers", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }),
   getCustomer: (id) => request<CustomerDetail>(
     `/api/v1/customers/${encodeURIComponent(id)}`,
   ),

@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 
+import { SHOP_CLOSE_TIME, SHOP_OPEN_TIME } from "../domain/shop-hours.js";
 import type { ReviveState } from "../domain/store.js";
 import type {
   Appointment,
@@ -48,11 +49,11 @@ function at(date: string, hour: number, minute: number, timezone: string): strin
 
 function standardHours(): Barber["weeklyHours"] {
   return {
-    1: [{ start: "10:00", end: "20:00" }],
-    2: [{ start: "10:00", end: "20:00" }],
-    3: [{ start: "10:00", end: "20:00" }],
-    4: [{ start: "10:00", end: "20:00" }],
-    5: [{ start: "10:00", end: "20:00" }],
+    1: [{ start: SHOP_OPEN_TIME, end: SHOP_CLOSE_TIME }],
+    2: [{ start: SHOP_OPEN_TIME, end: SHOP_CLOSE_TIME }],
+    3: [{ start: SHOP_OPEN_TIME, end: SHOP_CLOSE_TIME }],
+    4: [{ start: SHOP_OPEN_TIME, end: SHOP_CLOSE_TIME }],
+    5: [{ start: SHOP_OPEN_TIME, end: SHOP_CLOSE_TIME }],
   };
 }
 
@@ -748,16 +749,16 @@ export function createDemoState(options: CreateDemoStateOptions): ReviveState {
     })),
   ];
   const appointments: Appointment[] = [
-    seededAppointment("josh-appt", "josh", "jeremy", haircut, at(demoDate, 17, 0, options.timezone), options.now),
-    seededAppointment("sarah-appt", "sarah", "jeremy", haircut, at(demoDate, 18, 0, options.timezone), options.now),
+    seededAppointment("josh-appt", "josh", "jeremy", haircut, at(demoDate, 13, 0, options.timezone), options.now),
+    seededAppointment("sarah-appt", "sarah", "jeremy", haircut, at(demoDate, 14, 0, options.timezone), options.now),
     seededAppointment("nadia-appt", "nadia", "maya", fade, at(demoDate, 13, 0, options.timezone), options.now),
     seededAppointment("eli-appt", "eli", "devon", beard, at(demoDate, 15, 0, options.timezone), options.now),
-    seededAppointment("imani-appt", "imani", "maya", haircut, at(demoDate, 17, 0, options.timezone), options.now),
+    seededAppointment("imani-appt", "imani", "maya", haircut, at(demoDate, 15, 0, options.timezone), options.now),
     seededAppointment("tue-marco", "marco", "jeremy", beard, at(operationalDate(1), 11, 0, options.timezone), options.now),
     seededAppointment("tue-nadia", "nadia", "maya", haircut, at(operationalDate(1), 10, 0, options.timezone), options.now),
     seededAppointment("tue-imani", "imani", "maya", fade, at(operationalDate(1), 14, 0, options.timezone), options.now),
     seededAppointment("tue-eli", "eli", "devon", haircut, at(operationalDate(1), 12, 0, options.timezone), options.now),
-    seededAppointment("tue-marco-late", "marco", "devon", beard, at(operationalDate(1), 17, 0, options.timezone), options.now),
+    seededAppointment("tue-marco-late", "marco", "devon", beard, at(operationalDate(1), 16, 0, options.timezone), options.now),
     seededAppointment("wed-nadia", "nadia", "jeremy", fade, at(operationalDate(2), 10, 0, options.timezone), options.now),
     seededAppointment("wed-marco", "marco", "jeremy", haircut, at(operationalDate(2), 14, 0, options.timezone), options.now),
     seededAppointment("wed-imani-early", "imani", "maya", fade, at(operationalDate(2), 11, 0, options.timezone), options.now),
@@ -765,7 +766,7 @@ export function createDemoState(options: CreateDemoStateOptions): ReviveState {
     seededAppointment("thu-eli", "eli", "jeremy", beard, at(operationalDate(3), 10, 0, options.timezone), options.now),
     seededAppointment("thu-marco-early", "marco", "jeremy", haircut, at(operationalDate(3), 13, 0, options.timezone), options.now),
     seededAppointment("thu-imani", "imani", "maya", haircut, at(operationalDate(3), 15, 0, options.timezone), options.now),
-    seededAppointment("thu-marco", "marco", "devon", beard, at(operationalDate(3), 17, 0, options.timezone), options.now),
+    seededAppointment("thu-marco", "marco", "devon", beard, at(operationalDate(3), 16, 0, options.timezone), options.now),
     seededAppointment("fri-nadia", "nadia", "jeremy", haircut, at(operationalDate(4), 11, 0, options.timezone), options.now),
     seededAppointment("fri-marco", "marco", "maya", fade, at(operationalDate(4), 14, 0, options.timezone), options.now),
     seededAppointment("fri-eli", "eli", "devon", haircut, at(operationalDate(4), 10, 0, options.timezone), options.now),
@@ -828,8 +829,8 @@ export function createDemoState(options: CreateDemoStateOptions): ReviveState {
         serviceId: haircut.id,
         barberId: "jeremy",
         date: demoDate,
-        earliestStart: "17:00",
-        latestStart: "19:00",
+        earliestStart: "14:00",
+        latestStart: "16:00",
         status: "active",
         createdAt: DateTime.fromISO(options.now).minus({ hours: 1 }).toUTC().toISO()!,
         updatedAt: options.now,
@@ -839,8 +840,8 @@ export function createDemoState(options: CreateDemoStateOptions): ReviveState {
         customerId: "nadia",
         serviceId: fade.id,
         date: operationalDate(1),
-        earliestStart: "16:00",
-        latestStart: "18:00",
+        earliestStart: "14:00",
+        latestStart: "16:00",
         status: "active",
         createdAt: DateTime.fromISO(options.now).minus({ minutes: 42 }).toUTC().toISO()!,
         updatedAt: options.now,

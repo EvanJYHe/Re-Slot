@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DateTime } from "luxon";
 
+import { PhoneIcon, TelegramIcon } from "../components/icons.js";
 import { EmptyState, SegmentedControl, cn } from "../components/ui.js";
 import type {
   ActivityItem,
@@ -12,6 +13,7 @@ import type {
 } from "../types.js";
 
 type AgentTab = "inbox" | "waitlist" | "activity";
+type ChannelFilter = "all" | "telegram" | "voice";
 
 interface AgentPageProps {
   api: ReviveApi;
@@ -31,6 +33,8 @@ function ConversationRow({ conversation, selected, onSelect }: {
   selected: boolean;
   onSelect: () => void;
 }) {
+  const isTelegram = conversation.channel === "telegram";
+  const ChannelIcon = isTelegram ? TelegramIcon : PhoneIcon;
   return (
     <button
       aria-pressed={selected}
@@ -42,30 +46,48 @@ function ConversationRow({ conversation, selected, onSelect }: {
       type="button"
     >
       <span className="flex items-center justify-between gap-3">
-        <strong className="truncate text-sm font-semibold">{conversation.customerName}</strong>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span className={cn(
+            "grid h-7 w-7 shrink-0 place-items-center rounded-full",
+            isTelegram ? "bg-[#e7f4ed] text-revive" : "bg-amber-soft text-[#9a6414]",
+          )}>
+            <ChannelIcon className="h-3.5 w-3.5" />
+          </span>
+          <strong className="truncate text-sm font-semibold">{conversation.customerName}</strong>
+        </span>
         <time className="shrink-0 font-mono text-[9px] text-muted">{timestamp(conversation.updatedAt)}</time>
       </span>
-      <span className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
-        {conversation.hasException ? <span className="text-[#8a611c]">Exception</span> : null}
-        {titleCase(conversation.channel)} · {titleCase(conversation.direction)}
+      <span className="mt-1.5 flex items-center gap-1.5 pl-9 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
+        {conversation.hasException ? <span className="text-[#8a611c]">Exception ·</span> : null}
+        {isTelegram ? "Telegram" : "Phone call"} · {titleCase(conversation.direction)}
       </span>
-      <span className="mt-1.5 block truncate text-xs text-muted">{conversation.preview}</span>
+      <span className="mt-1.5 block truncate pl-9 text-xs text-muted">{conversation.preview}</span>
     </button>
   );
 }
 
 function MessageEvent({ event }: { event: ConversationEvent }) {
   const isCustomer = event.speaker === "customer";
+  const timeInCall = typeof event.metadata?.timeInCallSeconds === "number"
+    ? `${Math.floor(event.metadata.timeInCallSeconds / 60)}:${String(event.metadata.timeInCallSeconds % 60).padStart(2, "0")}`
+    : undefined;
   return (
     <div className={cn("flex", isCustomer ? "justify-end" : "justify-start")}>
       <article className={cn(
         "max-w-[78%] rounded-xl px-3.5 py-2.5 text-sm leading-6",
         isCustomer ? "rounded-br-[4px] bg-ink text-white" : "rounded-bl-[4px] border border-line bg-panel text-ink",
       )}>
+        <span className={cn(
+          "mb-1 block text-[9px] font-semibold uppercase tracking-[0.1em]",
+          isCustomer ? "text-white/60" : "text-muted",
+        )}>
+          {isCustomer ? "Customer" : "Re-Slot"}{event.kind === "transcript" ? " · call transcript" : ""}
+        </span>
         <p>{event.text}</p>
-        <time className={cn("mt-1 block font-mono text-[9px]", isCustomer ? "text-white/60" : "text-muted")}>
-          {timestamp(event.occurredAt)}
-        </time>
+        <span className={cn("mt-1 flex items-center justify-between gap-4 font-mono text-[9px]", isCustomer ? "text-white/60" : "text-muted")}>
+          <time>{timestamp(event.occurredAt)}</time>
+          {timeInCall === undefined ? null : <span>call {timeInCall}</span>}
+        </span>
       </article>
     </div>
   );
@@ -107,6 +129,9 @@ function Transcript({ detail, loading }: { detail: ConversationDetail | undefine
 }
 
 function ContextPanel({ detail }: { detail: ConversationDetail | undefined }) {
+  const recentActivity = detail?.activity
+    .filter((item) => item.type.startsWith("appointment.") || item.type.startsWith("offer."))
+    .slice(0, 4) ?? [];
   return (
     <aside aria-label="Context" className="border-l border-t border-line bg-[#fafbf9] lg:col-start-2 xl:col-start-auto xl:min-h-[calc(100vh-177px)] xl:border-t-0">
       <div className="flex h-12 items-center border-b border-line px-4">
@@ -142,6 +167,26 @@ function ContextPanel({ detail }: { detail: ConversationDetail | undefined }) {
             )}
           </section>
           <section className="p-4">
+            <h4 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">Appointment activity</h4>
+            {recentActivity.length === 0 ? (
+              <p className="mt-2 text-xs text-muted">No appointment changes yet.</p>
+            ) : (
+              <ol className="mt-3 space-y-3">
+                {recentActivity.map((item) => (
+                  <li className="grid grid-cols-[7px_1fr] gap-2" key={item.id}>
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-revive" />
+                    <span>
+                      <span className="block text-xs leading-5 text-ink">{item.message}</span>
+                      <time className="mt-0.5 block font-mono text-[9px] text-muted">
+                        {timestamp(item.occurredAt, "LLL d · h:mm a")}
+                      </time>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+          <section className="p-4">
             <h4 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">Private note</h4>
             <p className="mt-2 text-sm leading-6 text-muted">{detail.context.privateNote?.text ?? "No private note."}</p>
           </section>
@@ -151,22 +196,33 @@ function ContextPanel({ detail }: { detail: ConversationDetail | undefined }) {
   );
 }
 
-function Inbox({ conversations, selectedId, detail, loadingDetail, search, onSearch, onSelect }: {
+function Inbox({ conversations, selectedId, detail, loadingDetail, search, channelFilter, onSearch, onChannelFilter, onSelect }: {
   conversations: ConversationSummary[];
   selectedId: string | undefined;
   detail: ConversationDetail | undefined;
   loadingDetail: boolean;
   search: string;
+  channelFilter: ChannelFilter;
   onSearch: (value: string) => void;
+  onChannelFilter: (value: ChannelFilter) => void;
   onSelect: (id: string) => void;
 }) {
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return conversations.filter((conversation) => (
-      conversation.customerName.toLocaleLowerCase().includes(query)
-      || conversation.preview.toLocaleLowerCase().includes(query)
+      (channelFilter === "all" || conversation.channel === channelFilter)
+      && (
+        conversation.customerName.toLocaleLowerCase().includes(query)
+        || conversation.preview.toLocaleLowerCase().includes(query)
+      )
     ));
-  }, [conversations, search]);
+  }, [channelFilter, conversations, search]);
+
+  const counts = {
+    all: conversations.length,
+    telegram: conversations.filter((conversation) => conversation.channel === "telegram").length,
+    voice: conversations.filter((conversation) => conversation.channel === "voice").length,
+  };
 
   return (
     <div aria-label="Agent inbox" className="mx-auto grid w-full max-w-[1500px] overflow-hidden rounded-[4px] border border-line bg-panel shadow-panel lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]" role="region">
@@ -181,6 +237,26 @@ function Inbox({ conversations, selectedId, detail, loadingDetail, search, onSea
             placeholder="Search customers"
             value={search}
           />
+          <div aria-label="Conversation channels" className="mt-3 grid grid-cols-3 gap-1 rounded-revive bg-[#f2f4f1] p-1" role="group">
+            {([
+              ["all", "All"],
+              ["telegram", "Telegram"],
+              ["voice", "Calls"],
+            ] as const).map(([value, label]) => (
+              <button
+                aria-pressed={channelFilter === value}
+                className={cn(
+                  "rounded-[6px] px-1 py-1.5 text-[10px] font-medium transition-colors",
+                  channelFilter === value ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink",
+                )}
+                key={value}
+                onClick={() => onChannelFilter(value)}
+                type="button"
+              >
+                {label} <span className="font-mono text-[9px] opacity-60">{counts[value]}</span>
+              </button>
+            ))}
+          </div>
         </div>
         {conversations.length === 0 ? (
           <EmptyState
@@ -204,8 +280,13 @@ function Inbox({ conversations, selectedId, detail, loadingDetail, search, onSea
         <div className="flex h-12 items-center justify-between border-b border-line px-5">
           <h3 className="text-sm font-semibold">Conversation</h3>
           {detail === undefined ? null : (
-            <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
-              {titleCase(detail.conversation.channel)} · {titleCase(detail.conversation.direction)}
+            <span className={cn(
+              "rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em]",
+              detail.conversation.channel === "telegram"
+                ? "bg-[#e7f4ed] text-revive-dark"
+                : "bg-amber-soft text-[#865610]",
+            )}>
+              {detail.conversation.channel === "telegram" ? "Telegram" : "Phone call"} · {titleCase(detail.conversation.state)}
             </span>
           )}
         </div>
@@ -363,6 +444,24 @@ export function AgentPage({ api, refreshKey }: AgentPageProps) {
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [search, setSearch] = useState("");
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
+  const [error, setError] = useState<string>();
+
+  const selectConversation = (id: string | undefined) => {
+    setDetail(undefined);
+    setSelectedId(id);
+  };
+
+  const changeChannelFilter = (value: ChannelFilter) => {
+    setChannelFilter(value);
+    if (value === "all") return;
+    const selectedMatches = conversations.some((conversation) => (
+      conversation.id === selectedId && conversation.channel === value
+    ));
+    if (!selectedMatches) {
+      selectConversation(conversations.find((conversation) => conversation.channel === value)?.id);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -376,12 +475,15 @@ export function AgentPage({ api, refreshKey }: AgentPageProps) {
       setConversations(nextConversations);
       setWaitlist(nextWaitlist);
       setActivity(nextActivity);
+      setError(undefined);
       setSelectedId((current) => (
         current !== undefined && nextConversations.some((conversation) => conversation.id === current)
           ? current
           : nextConversations[0]?.id
       ));
       if (nextConversations.length === 0) setDetail(undefined);
+    }).catch(() => {
+      if (active) setError("Conversation activity could not be refreshed.");
     }).finally(() => {
       if (active) setLoading(false);
     });
@@ -394,6 +496,8 @@ export function AgentPage({ api, refreshKey }: AgentPageProps) {
     setLoadingDetail(true);
     void api.getConversation(selectedId).then((nextDetail) => {
       if (active) setDetail(nextDetail);
+    }).catch(() => {
+      if (active) setError("That conversation could not be loaded.");
     }).finally(() => {
       if (active) setLoadingDetail(false);
     });
@@ -420,13 +524,20 @@ export function AgentPage({ api, refreshKey }: AgentPageProps) {
       </div>
       <div className="p-5 lg:p-8">
         {loading ? <span className="sr-only" role="status">Loading agent activity</span> : null}
+        {error === undefined ? null : (
+          <p className="mx-auto mb-4 max-w-[1500px] rounded-revive border border-[#ead9b9] bg-amber-soft px-4 py-3 text-sm text-[#7c5b22]" role="alert">
+            {error}
+          </p>
+        )}
         {tab === "inbox" ? (
           <Inbox
+            channelFilter={channelFilter}
             conversations={conversations}
             detail={detail}
             loadingDetail={loadingDetail}
+            onChannelFilter={changeChannelFilter}
             onSearch={setSearch}
-            onSelect={setSelectedId}
+            onSelect={selectConversation}
             search={search}
             selectedId={selectedId}
           />

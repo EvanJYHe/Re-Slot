@@ -33,6 +33,22 @@ export function AgentIcon(props: IconProps) {
   );
 }
 
+export function TelegramIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m4 11.3 15.2-6.1c.7-.3 1.3.4 1.1 1.1l-2.6 12.2c-.2.8-1.1 1.1-1.7.6l-4-3-2 2c-.3.3-.9.1-.9-.4l.1-3.2 8.3-6.2-10.1 5.1-3.2-1.1c-.8-.2-.8-1.2-.2-1Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
+    </IconBase>
+  );
+}
+
+export function PhoneIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M8.3 4.4 6.7 3.6a2 2 0 0 0-2.6.8c-1.8 3.4.2 8.4 3.5 11.7 3.3 3.3 8.3 5.3 11.7 3.5a2 2 0 0 0 .8-2.6l-.8-1.6a2 2 0 0 0-2.4-1l-2.1.7a15 15 0 0 1-5.6-5.6l.7-2.1a2 2 0 0 0-1-2.4l-.6-.6Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+    </IconBase>
+  );
+}
+
 export function CustomersIcon(props: IconProps) {
   return (
     <IconBase {...props}>
@@ -62,6 +78,23 @@ export function XIcon(props: IconProps) {
   return (
     <IconBase {...props}>
       <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </IconBase>
+  );
+}
+
+export function EditIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 20h4L18.5 9.5a2.121 2.121 0 0 0-3-3L5 17v3Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+      <path d="m13.5 6.5 3 3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </IconBase>
+  );
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M10 11v6M14 11v6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
     </IconBase>
   );
 }

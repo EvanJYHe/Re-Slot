@@ -70,18 +70,18 @@ describe("Re-Slot golden path", () => {
       customerId: "sarah",
       status: "confirmed",
     });
-    expect(localHour(state.appointments.find((appointment) => appointment.id === "sarah-appt")!.startAt)).toBe(17);
+    expect(localHour(state.appointments.find((appointment) => appointment.id === "sarah-appt")!.startAt)).toBe(13);
     const alex = state.appointments.find(
       (appointment) => appointment.customerId === "alex"
         && appointment.status === "confirmed"
         && DateTime.fromISO(appointment.startAt).setZone(timezone).toISODate() === "2026-07-20",
     );
     expect(alex).toBeDefined();
-    expect(localHour(alex!.startAt)).toBe(18);
+    expect(localHour(alex!.startAt)).toBe(14);
     expect(state.appointments.some(
       (appointment) => appointment.barberId === "jeremy"
         && appointment.status === "confirmed"
-        && localHour(appointment.startAt) === 19
+        && localHour(appointment.startAt) === 17
         && DateTime.fromISO(appointment.startAt).setZone(timezone).toISODate() === "2026-07-20",
     )).toBe(false);
     expect(state.refillJobs.filter((job) => job.status === "completed" && !job.id.startsWith("demo-"))).toHaveLength(2);
