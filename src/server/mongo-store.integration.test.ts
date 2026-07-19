@@ -1,6 +1,6 @@
 import { MongoClient } from "mongodb";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { ReviveState } from "../domain/store.js";
 import type { Appointment, SchedulingSettings } from "../domain/types.js";
@@ -111,6 +111,24 @@ describe("MongoReviveStore", () => {
       "conversation_event_identity",
       "conversation_event_timeline",
     ]));
+  });
+
+  it("serves isolated reads from the initialized snapshot", async () => {
+    const readState = vi.spyOn(
+      store as unknown as { readState(): Promise<ReviveState> },
+      "readState",
+    );
+
+    try {
+      const first = await store.read();
+      first.customers[0]!.name = "Changed outside the store";
+      const second = await store.read();
+
+      expect(second.customers[0]!.name).toBe("Alex");
+      expect(readState).not.toHaveBeenCalled();
+    } finally {
+      readState.mockRestore();
+    }
   });
 
   it("persists state changes inside a Mongo transaction", async () => {

@@ -73,6 +73,7 @@ async function replaceCollection<T extends { id: string }>(
 export class MongoReviveStore implements ReviveStore {
   private readonly database: Db;
   private readonly listeners = new Set<StateListener>();
+  private latestState: ReviveState | undefined;
 
   constructor(
     private readonly client: MongoClient,
@@ -84,7 +85,11 @@ export class MongoReviveStore implements ReviveStore {
   async initialize(seedState: ReviveState): Promise<void> {
     await this.ensureIndexes();
     const settingsCount = await this.collection(collectionNames.settings).countDocuments({ _id: "shop" });
-    if (settingsCount === 0) await this.replace(seedState);
+    if (settingsCount === 0) {
+      await this.replace(seedState);
+      return;
+    }
+    this.latestState = await this.readState();
   }
 
   async ensureIndexes(): Promise<void> {
@@ -192,19 +197,22 @@ export class MongoReviveStore implements ReviveStore {
   }
 
   async read(): Promise<ReviveState> {
-    return this.readState();
+    if (this.latestState === undefined) {
+      throw new Error("MongoReviveStore must be initialized before reading state.");
+    }
+    return structuredClone(this.latestState);
   }
 
   async transaction<T>(operation: (state: ReviveState) => T | Promise<T>): Promise<T> {
     const session = this.client.startSession();
     let result: T | undefined;
-    let committed = false;
+    let committedState: ReviveState | undefined;
     try {
       await session.withTransaction(async () => {
         const state = await this.readState(session);
         result = await operation(state);
         await this.writeState(state, session);
-        committed = true;
+        committedState = state;
       }, {
         readConcern: { level: "snapshot" },
         writeConcern: { w: "majority" },
@@ -212,25 +220,22 @@ export class MongoReviveStore implements ReviveStore {
     } finally {
       await session.endSession();
     }
-    if (committed) {
-      const snapshot = await this.read();
-      for (const listener of this.listeners) listener(structuredClone(snapshot));
-    }
+    if (committedState !== undefined) this.publish(committedState);
     return structuredClone(result as T);
   }
 
   async replace(state: ReviveState): Promise<void> {
+    const replacement = structuredClone(state);
     const session = this.client.startSession();
     try {
       await session.withTransaction(
-        () => this.writeState(structuredClone(state), session),
+        () => this.writeState(replacement, session),
         { writeConcern: { w: "majority" } },
       );
     } finally {
       await session.endSession();
     }
-    const snapshot = await this.read();
-    for (const listener of this.listeners) listener(structuredClone(snapshot));
+    this.publish(replacement);
   }
 
   subscribe(listener: StateListener): () => void {
@@ -240,6 +245,11 @@ export class MongoReviveStore implements ReviveStore {
 
   private collection(name: string): Collection<StringIdDocument> {
     return this.database.collection<StringIdDocument>(name);
+  }
+
+  private publish(state: ReviveState): void {
+    this.latestState = structuredClone(state);
+    for (const listener of this.listeners) listener(structuredClone(this.latestState));
   }
 
   private async readState(session?: ClientSession): Promise<ReviveState> {
