@@ -107,7 +107,7 @@ function Transcript({ detail, loading }: { detail: ConversationDetail | undefine
 
 function ContextPanel({ detail }: { detail: ConversationDetail | undefined }) {
   return (
-    <aside aria-label="Context" className="border-l border-line bg-[#fafbf9] xl:min-h-[calc(100vh-177px)]">
+    <aside aria-label="Context" className="border-l border-t border-line bg-[#fafbf9] lg:col-start-2 xl:col-start-auto xl:min-h-[calc(100vh-177px)] xl:border-t-0">
       <div className="flex h-12 items-center border-b border-line px-4">
         <h3 className="text-sm font-semibold">Context</h3>
       </div>

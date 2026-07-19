@@ -196,6 +196,7 @@ describe("AgentPage", () => {
     expect(screen.queryByText(/never render this JSON/i)).not.toBeInTheDocument();
 
     const context = screen.getByRole("complementary", { name: "Context" });
+    expect(context).toHaveClass("lg:col-start-2", "xl:col-start-auto");
     for (const label of ["Customer", "Appointment", "Automation", "Private note"]) {
       expect(within(context).getByRole("heading", { name: label })).toBeInTheDocument();
     }
