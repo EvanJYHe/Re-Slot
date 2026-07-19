@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AppConfig } from "./config.js";
+import { createTelegramLinkToken } from "./providers/telegram.js";
 import { createRuntime, type ReviveRuntime } from "./runtime.js";
 
 const now = "2026-07-18T16:00:00.000Z";
@@ -20,8 +21,11 @@ const config: AppConfig = {
   mongoDatabase: "revive_runtime_test",
   telegramBotToken: undefined,
   telegramWebhookSecret: undefined,
+  telegramLocalPolling: false,
+  telegramApiIp: undefined,
   backboardApiKey: undefined,
   backboardAssistantId: undefined,
+  backboardApiIp: undefined,
   elevenLabsApiKey: undefined,
   elevenLabsAgentId: undefined,
   elevenLabsPhoneNumberId: undefined,
@@ -100,5 +104,65 @@ describe("REVIVE runtime", () => {
       secret_token: "test-webhook-secret",
       allowed_updates: ["message"],
     });
+  });
+
+  it("polls Telegram locally without requiring a public webhook", async () => {
+    const telegramSecret = "local-polling-secret";
+    let pollingRequests = 0;
+    const urls: string[] = [];
+    const fetchImpl: typeof fetch = vi.fn(async (input, init) => {
+      const url = String(input);
+      urls.push(url);
+      if (url.includes("/deleteWebhook")) {
+        return new Response(JSON.stringify({ ok: true, result: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/getUpdates")) {
+        pollingRequests += 1;
+        if (pollingRequests === 1) {
+          return new Response(JSON.stringify({
+            ok: true,
+            result: [{
+              update_id: 501,
+              message: {
+                message_id: 10,
+                chat: { id: 9001 },
+                text: `/start ${createTelegramLinkToken("josh", telegramSecret)}`,
+              },
+            }],
+          }), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        });
+      }
+      if (url.includes("/sendMessage")) {
+        return new Response(JSON.stringify({ ok: true, result: { message_id: 11 } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`Unexpected provider request: ${url}`);
+    });
+    runtime = await createRuntime({
+      ...config,
+      nodeEnv: "development",
+      telegramBotToken: "test-bot-token",
+      telegramWebhookSecret: telegramSecret,
+      telegramLocalPolling: true,
+      backboardApiKey: "backboard-key",
+      backboardAssistantId: "assistant-id",
+    }, { clock: () => now, fetchImpl });
+
+    await expect(runtime.configureWebhooks()).resolves.toEqual({ telegram: "polling" });
+    await vi.waitFor(async () => {
+      expect((await runtime!.store.read()).customers.find((customer) => customer.id === "josh")?.telegramChatId)
+        .toBe("9001");
+    });
+    expect(urls.some((url) => url.includes("/deleteWebhook"))).toBe(true);
+    expect(urls.some((url) => url.includes("/getUpdates"))).toBe(true);
+    expect(urls.some((url) => url.includes("/sendMessage"))).toBe(true);
   });
 });

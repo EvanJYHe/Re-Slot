@@ -114,14 +114,34 @@ function PreferenceToggle({ label, detail, checked, disabled, onChange }: {
   );
 }
 
-function AppointmentList({ detail }: { detail: CustomerDetail }) {
+function AppointmentList({ detail, onCancel }: {
+  detail: CustomerDetail;
+  onCancel: (appointmentId: string) => Promise<void>;
+}) {
+  const [confirmingId, setConfirmingId] = useState<string>();
+  const [cancellingId, setCancellingId] = useState<string>();
+  const [status, setStatus] = useState<string>();
   const now = DateTime.now().toUTC();
   const upcoming = detail.appointments.filter((appointment) => (
     appointment.status === "confirmed" && DateTime.fromISO(appointment.startAt).toUTC() >= now
   ));
   const past = detail.appointments.filter((appointment) => !upcoming.some((candidate) => candidate.id === appointment.id));
 
-  const group = (label: string, appointments: CustomerDetail["appointments"]) => (
+  const cancel = async (appointmentId: string) => {
+    setCancellingId(appointmentId);
+    setStatus(undefined);
+    try {
+      await onCancel(appointmentId);
+      setConfirmingId(undefined);
+      setStatus("Appointment cancelled.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "The appointment could not be cancelled.");
+    } finally {
+      setCancellingId(undefined);
+    }
+  };
+
+  const group = (label: string, appointments: CustomerDetail["appointments"], cancellable = false) => (
     <div>
       <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">{label}</span>
       {appointments.length === 0 ? (
@@ -129,12 +149,48 @@ function AppointmentList({ detail }: { detail: CustomerDetail }) {
       ) : (
         <div className="mt-2 divide-y divide-line rounded-revive border border-line">
           {appointments.map((appointment) => (
-            <article className="flex items-center justify-between gap-4 px-3.5 py-3" key={appointment.id}>
-              <div>
+            <article className="grid gap-3 px-3.5 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={appointment.id}>
+              <div className="min-w-0">
                 <strong className="block text-sm font-medium">{appointment.serviceName}</strong>
                 <span className="mt-1 block text-xs text-muted">{appointment.barberName}</span>
               </div>
-              <time className="text-right font-mono text-[10px] text-muted">{formatDate(appointment.startAt)}</time>
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <time className="mr-1 font-mono text-[10px] text-muted">{formatDate(appointment.startAt)}</time>
+                {cancellable ? (
+                  confirmingId === appointment.id ? (
+                    <span className="inline-flex items-center gap-1 rounded-revive border border-[#ead2d2] bg-[#fff9f9] p-1">
+                      <button
+                        className="h-7 rounded-[6px] px-2 text-xs font-medium text-muted transition-colors hover:bg-white hover:text-ink"
+                        disabled={cancellingId === appointment.id}
+                        onClick={() => setConfirmingId(undefined)}
+                        type="button"
+                      >
+                        Keep
+                      </button>
+                      <button
+                        className="h-7 rounded-[6px] bg-[#9e3f3f] px-2.5 text-xs font-medium text-white transition-colors hover:bg-[#843333] disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={cancellingId === appointment.id}
+                        onClick={() => void cancel(appointment.id)}
+                        type="button"
+                      >
+                        {cancellingId === appointment.id ? "Cancelling…" : "Confirm cancel"}
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      aria-label={`Cancel ${appointment.serviceName} on ${formatDate(appointment.startAt)}`}
+                      className="h-7 rounded-revive border border-transparent px-2 text-xs font-medium text-[#9e3f3f] transition-colors hover:border-[#ead2d2] hover:bg-[#fff8f8]"
+                      onClick={() => {
+                        setConfirmingId(appointment.id);
+                        setStatus(undefined);
+                      }}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                  )
+                ) : null}
+              </div>
             </article>
           ))}
         </div>
@@ -142,7 +198,17 @@ function AppointmentList({ detail }: { detail: CustomerDetail }) {
     </div>
   );
 
-  return <div className="grid gap-5 lg:grid-cols-2">{group("Upcoming", upcoming)}{group("Past", past)}</div>;
+  return (
+    <div>
+      <div className="grid gap-5 lg:grid-cols-2">{group("Upcoming", upcoming, true)}{group("Past", past)}</div>
+      {status === undefined ? null : (
+        <p aria-live="polite" className={cn(
+          "mt-3 text-xs",
+          status === "Appointment cancelled." ? "text-revive-dark" : "text-[#9e3f3f]",
+        )}>{status}</p>
+      )}
+    </div>
+  );
 }
 
 function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }: {
@@ -178,6 +244,17 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
       onSavingChange("Saved");
     } catch (error) {
       onSavingChange(error instanceof Error ? error.message : "That note could not be saved.");
+    }
+  };
+  const cancelAppointment = async (appointmentId: string) => {
+    onSavingChange("Cancelling appointment…");
+    try {
+      await api.cancelAppointment(appointmentId);
+      await refresh();
+      onSavingChange("Appointment cancelled");
+    } catch (error) {
+      onSavingChange(undefined);
+      throw error;
     }
   };
 
@@ -271,7 +348,7 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
         </section>
         <section className="px-5 py-5 lg:px-7">
           <h4 className="text-sm font-semibold">Appointments</h4>
-          <div className="mt-4"><AppointmentList detail={detail} /></div>
+          <div className="mt-4"><AppointmentList detail={detail} onCancel={cancelAppointment} /></div>
         </section>
         <section className="px-5 py-5 lg:px-7">
           <h4 className="text-sm font-semibold">Waitlist</h4>

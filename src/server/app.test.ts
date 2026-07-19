@@ -21,8 +21,11 @@ const config: AppConfig = {
   mongoDatabase: "revive_test",
   telegramBotToken: undefined,
   telegramWebhookSecret: undefined,
+  telegramLocalPolling: false,
+  telegramApiIp: undefined,
   backboardApiKey: undefined,
   backboardAssistantId: undefined,
+  backboardApiIp: undefined,
   elevenLabsApiKey: undefined,
   elevenLabsAgentId: undefined,
   elevenLabsPhoneNumberId: undefined,
@@ -354,6 +357,43 @@ describe("REVIVE Fastify API", () => {
       startAt: "2026-07-20T19:00:00.000Z",
       status: "cancelled",
     });
+  });
+
+  it("reports closure and rejects weekend or after-hours bookings", async () => {
+    const calendar = await app.inject({
+      method: "GET",
+      url: "/api/v1/calendar?date=2026-07-20",
+    });
+    expect(calendar.json()).toMatchObject({ businessHours: { start: "09:00", end: "17:00" } });
+
+    const weekendAvailability = await app.inject({
+      method: "GET",
+      url: "/api/v1/availability?date=2026-07-25&serviceId=haircut&barberId=jeremy",
+    });
+    expect(weekendAvailability.json()).toMatchObject({
+      closed: true,
+      slots: [],
+      message: "We're closed at that time. We're open Monday through Friday from 9:00 AM to 5:00 PM.",
+    });
+
+    for (const startAt of ["2026-07-25T17:00:00.000Z", "2026-07-20T21:00:00.000Z"]) {
+      const booking = await app.inject({
+        method: "POST",
+        url: "/api/v1/appointments",
+        payload: {
+          customerId: "alex",
+          barberId: "jeremy",
+          serviceId: "haircut",
+          startAt,
+        },
+      });
+      expect(booking.statusCode).toBe(400);
+      expect(booking.json()).toMatchObject({
+        type: "error",
+        code: "INVALID_REQUEST",
+        message: "We're closed at that time. We're open Monday through Friday from 9:00 AM to 5:00 PM.",
+      });
+    }
   });
 
   it("updates customer preferences, notes, and waitlist state with SSE-visible events", async () => {

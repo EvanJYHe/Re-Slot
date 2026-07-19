@@ -45,7 +45,7 @@ describe("SchedulingToolbox", () => {
     const store = new InMemoryStore(createDemoState({ now, timezone }));
     const toolbox = new SchedulingToolbox(store, new ReviveEngine(store), () => now);
     const demoDate = "2026-07-20";
-    const seven = DateTime.fromISO(`${demoDate}T19:00`, { zone: timezone }).toUTC().toISO()!;
+    const four = DateTime.fromISO(`${demoDate}T16:00`, { zone: timezone }).toUTC().toISO()!;
 
     const appointments = await toolbox.execute(
       "get_my_appointments",
@@ -63,7 +63,7 @@ describe("SchedulingToolbox", () => {
       {
         barber_id: "jeremy",
         service_id: "haircut",
-        start_at: seven,
+        start_at: four,
         confirmed: false,
       },
       { provider: "telegram", customerId: "alex" },
@@ -89,12 +89,28 @@ describe("SchedulingToolbox", () => {
       slots: expect.arrayContaining([expect.objectContaining({ barberName: "Maya" })]),
     });
 
+    const weekend = await toolbox.execute(
+      "get_availability",
+      {
+        date: "2026-07-25",
+        service_id: "haircut",
+        barber_id: "jeremy",
+        include_alternates: true,
+      },
+      { provider: "telegram", customerId: "alex" },
+    );
+    expect(weekend).toMatchObject({
+      closed: true,
+      slots: [],
+      message: "We're closed at that time. We're open Monday through Friday from 9:00 AM to 5:00 PM.",
+    });
+
     const shop = await toolbox.execute(
       "get_shop_info",
       { topic: "hours" },
       { provider: "telegram", customerId: "alex" },
     );
-    expect(shop).toMatchObject({ timezone, hours: "Monday to Friday, 10 AM to 8 PM" });
+    expect(shop).toMatchObject({ timezone, hours: "Monday to Friday, 9:00 AM to 5:00 PM" });
     expect(shop).toMatchObject({
       barbers: expect.arrayContaining([
         { id: "devon", name: "Devon", serviceIds: ["haircut", "beard"] },

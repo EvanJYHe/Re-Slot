@@ -103,6 +103,8 @@ export interface AvailabilityResponse {
   timezone: string;
   service: { id: string; name: string; durationMinutes: number };
   slots: AvailabilitySlot[];
+  closed?: boolean;
+  message?: string;
 }
 
 export type CustomerBookingState = "booked" | "waitlisted" | "outreach_ready" | "not_eligible";

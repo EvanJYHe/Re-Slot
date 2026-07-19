@@ -7,6 +7,12 @@ import { z, ZodError } from "zod";
 
 import type { OperationResult, ReviveEngine } from "../domain/engine.js";
 import { findAvailableSlots } from "../domain/scheduling.js";
+import {
+  isShopWeekend,
+  SHOP_CLOSED_MESSAGE,
+  SHOP_CLOSE_TIME,
+  SHOP_OPEN_TIME,
+} from "../domain/shop-hours.js";
 import type { ReviveStore } from "../domain/store.js";
 import type { SchedulingSettings } from "../domain/types.js";
 import type { AppConfig } from "./config.js";
@@ -284,7 +290,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       timezone: state.settings.timezone,
       generatedAt: clock(),
       shop: { name: "REVIVE", location: "Toronto, ON" },
-      businessHours: { start: "10:00", end: "20:00" },
+      businessHours: { start: SHOP_OPEN_TIME, end: SHOP_CLOSE_TIME },
       barbers: state.barbers,
       services: state.services,
       appointments,
@@ -320,6 +326,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     const state = await options.store.read();
     const service = state.services.find((candidate) => candidate.id === query.serviceId);
     if (service === undefined) return reply.status(404).send({ error: "service_not_found" });
+    const closed = isShopWeekend(date.weekday);
     const slots = findAvailableSlots({
       date: query.date,
       timezone: state.settings.timezone,
@@ -338,6 +345,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       timezone: state.settings.timezone,
       service: { id: service.id, name: service.name, durationMinutes: service.durationMinutes },
       slots,
+      ...(closed ? { closed: true, message: SHOP_CLOSED_MESSAGE } : {}),
     };
   });
 

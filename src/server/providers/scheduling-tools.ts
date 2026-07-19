@@ -3,6 +3,11 @@ import { z } from "zod";
 
 import type { ReviveEngine } from "../../domain/engine.js";
 import { findAvailableSlots } from "../../domain/scheduling.js";
+import {
+  isShopWeekend,
+  SHOP_CLOSED_MESSAGE,
+  SHOP_HOURS_LABEL,
+} from "../../domain/shop-hours.js";
 import type { ReviveStore } from "../../domain/store.js";
 import type { ActorContext, Barber } from "../../domain/types.js";
 import type { ToolDefinition } from "./backboard.js";
@@ -295,7 +300,15 @@ export class SchedulingToolbox {
       barberName: state.barbers.find((barber) => barber.id === slot.barberId)?.name ?? "Unknown barber",
       localTime: DateTime.fromISO(slot.startAt).setZone(state.settings.timezone).toFormat("h:mm a"),
     }));
-    return { date: input.date, service: service.name, timezone: state.settings.timezone, slots };
+    const requestedDate = DateTime.fromISO(input.date, { zone: state.settings.timezone });
+    const closed = requestedDate.isValid && isShopWeekend(requestedDate.weekday);
+    return {
+      date: input.date,
+      service: service.name,
+      timezone: state.settings.timezone,
+      slots,
+      ...(closed ? { closed: true, message: SHOP_CLOSED_MESSAGE } : {}),
+    };
   }
 
   private async getShopInfo(input: z.infer<typeof shopInfoSchema>) {
@@ -305,7 +318,7 @@ export class SchedulingToolbox {
       name: "REVIVE",
       location: "Toronto, Ontario",
       timezone: state.settings.timezone,
-      hours: "Monday to Friday, 10 AM to 8 PM",
+      hours: SHOP_HOURS_LABEL,
       services: state.services.map((service) => ({
         id: service.id,
         name: service.name,

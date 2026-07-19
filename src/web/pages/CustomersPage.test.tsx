@@ -210,7 +210,19 @@ function api(): ReviveApi {
     getActivity: vi.fn(async () => []),
     bookAppointment: vi.fn(async () => { throw new Error("unused"); }),
     rescheduleAppointment: vi.fn(async () => { throw new Error("unused"); }),
-    cancelAppointment: vi.fn(async () => { throw new Error("unused"); }),
+    cancelAppointment: vi.fn(async (appointmentId) => {
+      for (const [id, current] of details) {
+        const appointment = current.appointments.find((candidate) => candidate.id === appointmentId);
+        if (appointment === undefined) continue;
+        details.set(id, {
+          ...current,
+          appointments: current.appointments.map((candidate) => (
+            candidate.id === appointmentId ? { ...candidate, status: "cancelled" as const } : candidate
+          )),
+        });
+      }
+      return { type: "committed" as const, operation: "cancel", message: "Cancelled" };
+    }),
   };
 }
 
@@ -297,5 +309,23 @@ describe("CustomersPage", () => {
     expect(await screen.findByText("Ask about a beard trim next time.")).toBeInTheDocument();
     expect(client.getCustomer).toHaveBeenCalledTimes(6);
     expect(screen.queryByText(/segments|lifetime value|campaign/i)).not.toBeInTheDocument();
+  });
+
+  it("cancels an upcoming appointment only after inline confirmation", async () => {
+    const user = userEvent.setup();
+    const client = api();
+    render(<CustomersPage api={client} refreshKey={0} />);
+
+    await user.click(await screen.findByRole("button", { name: /Sarah/ }));
+    const record = await screen.findByRole("region", { name: "Sarah customer record" });
+    await user.click(within(record).getByRole("button", { name: /Cancel Signature haircut/ }));
+
+    expect(client.cancelAppointment).not.toHaveBeenCalled();
+    expect(within(record).getByRole("button", { name: "Keep" })).toBeInTheDocument();
+    await user.click(within(record).getByRole("button", { name: "Confirm cancel" }));
+
+    await waitFor(() => expect(client.cancelAppointment).toHaveBeenCalledWith("sarah-future"));
+    expect(await within(record).findByText("Appointment cancelled.")).toBeInTheDocument();
+    expect(within(record).queryByRole("button", { name: /Cancel Signature haircut/ })).not.toBeInTheDocument();
   });
 });

@@ -510,7 +510,11 @@ function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, on
     void api.getAvailability({ date, serviceId, barberId }).then((result) => {
       if (!active) return;
       setSlots(result.slots);
-      setStatus(result.slots.length === 0 ? "No live times are available for this selection." : "");
+      setStatus(result.closed
+        ? result.message ?? "We're closed. We're open Monday through Friday from 9:00 AM to 5:00 PM."
+        : result.slots.length === 0
+          ? "No live times are available for this selection."
+          : "");
     }).catch(() => {
       if (active) setStatus("Availability could not be loaded.");
     });
