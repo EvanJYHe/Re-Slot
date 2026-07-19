@@ -25,6 +25,17 @@ NODE_ENV=production npm start
 
 Fastify serves the built React assets from `dist/public` and listens on `PORT`.
 
+## Front-desk workspace
+
+The operator UI is a focused four-page workspace:
+
+- **Calendar** — Day, Week, and Month views, an All/Jeremy/Maya/Devon filter, live refill state, and engine-backed booking, rescheduling, and cancellation.
+- **Agent** — real Telegram and voice conversations, scheduling actions, waitlist supervision, and compact customer context. No provider activity is fabricated for the demo.
+- **Customers** — masked contact identities, scheduling preferences, appointments, waitlist entries, and private operator notes.
+- **Settings** — refill policies, connection health, and the authenticated demo reset.
+
+Calendar viewing is public. Protected actions and the other three pages ask for `DEMO_ADMIN_PIN`; the resulting one-hour operator session is kept only in the browser's `sessionStorage`. Reset seeds a realistic Monday-to-Friday shop week while preserving linked demo identities and Sarah's configured phone number.
+
 ## Provider setup
 
 Keep real credentials only in `.env` locally or sealed Railway variables. Never commit them.
@@ -86,6 +97,16 @@ Generate a Railway domain, set that HTTPS URL as `PUBLIC_BASE_URL`, then registe
 
 - `GET /health`
 - `GET /api/v1/calendar?date=YYYY-MM-DD`
+- `GET /api/v1/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD`
+- `GET /api/v1/availability`
+- `POST /api/v1/appointments`
+- `PATCH /api/v1/appointments/:id`
+- `POST /api/v1/appointments/:id/cancel`
+- `GET/PATCH /api/v1/customers/:id`
+- `POST /api/v1/customers/:id/notes`
+- `GET /api/v1/conversations` and `GET /api/v1/conversations/:id`
+- `GET/PATCH /api/v1/waitlist/:id`
+- `GET /api/v1/activity`
 - `GET/PATCH /api/v1/settings`
 - `GET /api/v1/refill-jobs/:id`
 - `GET /api/v1/events`
@@ -104,4 +125,4 @@ npm run check
 
 Tests cover availability, confirmation and consent, candidate ordering, discounts and move limits, atomic offer acceptance, expiration and retries, MongoDB transactions/indexes, duplicate webhooks, Backboard tool loops, ElevenLabs signatures, SSE, the live calendar, and the complete golden path.
 
-The approved system design and execution record live in [docs/superpowers/specs/2026-07-18-revive-design.md](docs/superpowers/specs/2026-07-18-revive-design.md) and [docs/superpowers/plans/2026-07-18-revive-implementation.md](docs/superpowers/plans/2026-07-18-revive-implementation.md).
+The approved system design and execution record live in [docs/superpowers/specs/2026-07-18-revive-design.md](docs/superpowers/specs/2026-07-18-revive-design.md) and [docs/superpowers/plans/2026-07-18-revive-implementation.md](docs/superpowers/plans/2026-07-18-revive-implementation.md). The locked front-desk redesign is documented in [docs/superpowers/specs/2026-07-18-revive-frontend-redesign.md](docs/superpowers/specs/2026-07-18-revive-frontend-redesign.md) with its execution plan in [docs/superpowers/plans/2026-07-18-front-desk-redesign-implementation.md](docs/superpowers/plans/2026-07-18-front-desk-redesign-implementation.md).
