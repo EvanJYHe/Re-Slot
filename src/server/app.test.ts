@@ -86,6 +86,41 @@ describe("REVIVE Fastify API", () => {
     })).statusCode).toBe(404);
   });
 
+  it("reports ElevenLabs ready only when the outbound destination is configured", async () => {
+    const voiceConfig: AppConfig = {
+      ...config,
+      elevenLabsApiKey: "elevenlabs-key",
+      elevenLabsAgentId: "agent-1",
+      elevenLabsPhoneNumberId: "phone-1",
+      elevenLabsWebhookSecret: "voice-webhook-secret-that-is-long-enough",
+      sarahPhone: undefined,
+    };
+    const healthFor = async (candidateConfig: AppConfig) => {
+      const candidateStore = new InMemoryStore(createDemoState({
+        now,
+        timezone: candidateConfig.timezone,
+      }));
+      const candidateApp = await buildServer({
+        config: candidateConfig,
+        store: candidateStore,
+        engine: new ReviveEngine(candidateStore),
+        clock: () => now,
+      });
+      try {
+        return (await candidateApp.inject({ method: "GET", url: "/health" })).json();
+      } finally {
+        await candidateApp.close();
+      }
+    };
+
+    await expect(healthFor(voiceConfig)).resolves.toMatchObject({
+      providers: { elevenlabs: "unconfigured" },
+    });
+    await expect(healthFor({ ...voiceConfig, sarahPhone: "+14165550101" })).resolves.toMatchObject({
+      providers: { elevenlabs: "configured" },
+    });
+  });
+
   it("returns an authoritative enriched calendar with active refill state", async () => {
     const actor: ActorContext = { provider: "telegram", customerId: "josh" };
     await engine.cancel({ actor, appointmentId: "josh-appt", now });
@@ -109,33 +144,6 @@ describe("REVIVE Fastify API", () => {
         status: "pending",
       })],
     });
-  });
-
-  it("returns source-backed dashboard metrics for a validated date range", async () => {
-    const date = getDemoDate(now, config.timezone);
-    const response = await app.inject({
-      method: "GET",
-      url: `/api/v1/dashboard?start=${date}&end=${date}`,
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({
-      range: { start: date, end: date },
-      timezone: config.timezone,
-      metrics: {
-        recoveredRevenueCents: 0,
-        confirmedRevenueCents: expect.any(Number),
-        chairsRecovered: 0,
-      },
-      daily: [expect.objectContaining({ date })],
-    });
-    expect(response.json().metrics.confirmedRevenueCents).toBeGreaterThan(0);
-
-    const invalid = await app.inject({
-      method: "GET",
-      url: "/api/v1/dashboard?start=2026-07-24&end=2026-07-20",
-    });
-    expect(invalid.statusCode).toBe(400);
   });
 
   it("validates and persists settings patches", async () => {

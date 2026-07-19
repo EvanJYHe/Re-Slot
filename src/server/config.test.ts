@@ -17,6 +17,12 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ DATA_STORE: "spreadsheet" })).toThrow();
   });
 
+  it("accepts only an E.164 Sarah destination when one is configured", () => {
+    expect(loadConfig({ SARAH_PHONE: "" }).sarahPhone).toBeUndefined();
+    expect(loadConfig({ SARAH_PHONE: "+14165550101" }).sarahPhone).toBe("+14165550101");
+    expect(() => loadConfig({ SARAH_PHONE: "416-555-0101" })).toThrow();
+  });
+
   it("derives a provider actor secret without admin-session configuration", () => {
     const config = loadConfig({ ELEVENLABS_WEBHOOK_SECRET: "voice-secret" });
 

@@ -98,4 +98,30 @@ describe("BackboardClient", () => {
     })).rejects.toThrow("Backboard is temporarily unavailable");
     expect(requestBodies[0]).toMatchObject({ thread_id: "thread-josh" });
   });
+
+  it("accepts completed provider responses with null tool calls", async () => {
+    const client = new BackboardClient({
+      apiKey: "test-key",
+      assistantId: "assistant-1",
+      fetchImpl: async () => new Response(JSON.stringify({
+        status: "COMPLETED",
+        thread_id: "thread-live-response",
+        content: "Hello from REVIVE.",
+        tool_calls: null,
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    });
+
+    await expect(client.reply({
+      content: "Hello",
+      actor: { provider: "worker", customerId: "sarah" },
+      tools: [],
+      executeTool: async () => ({}),
+    })).resolves.toEqual({
+      content: "Hello from REVIVE.",
+      threadId: "thread-live-response",
+    });
+  });
 });

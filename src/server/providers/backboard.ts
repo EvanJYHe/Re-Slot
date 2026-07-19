@@ -44,7 +44,7 @@ const responseSchema = z.object({
   status: z.string(),
   thread_id: z.string(),
   content: z.string().nullable().optional(),
-  tool_calls: z.array(toolCallSchema).optional().default([]),
+  tool_calls: z.array(toolCallSchema).nullish().transform((calls) => calls ?? []),
 });
 
 const DEFAULT_SYSTEM_PROMPT = `You are REVIVE, a concise Toronto barbershop scheduling operator.

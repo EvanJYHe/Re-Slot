@@ -31,7 +31,6 @@ function api(): ReviveApi {
   return {
     getCalendar: vi.fn(async () => { throw new Error("unused"); }),
     getCalendarRange: vi.fn(async () => { throw new Error("unused"); }),
-    getDashboard: vi.fn(async () => { throw new Error("unused"); }),
     getAvailability: vi.fn(async () => { throw new Error("unused"); }),
     getSettings: vi.fn(async () => ({ ...current })),
     patchSettings: vi.fn(async (patch) => {

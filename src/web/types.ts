@@ -90,33 +90,6 @@ export interface CalendarResponse {
   channelHealth: ChannelHealth;
 }
 
-export interface DashboardResponse {
-  range: { start: string; end: string };
-  timezone: string;
-  metrics: {
-    recoveredRevenueCents: number;
-    confirmedRevenueCents: number;
-    chairsRecovered: number;
-    refillSuccessRate: number;
-    averageRefillMinutes: number;
-    chairUtilizationRate: number;
-    activeWaitlist: number;
-    activeRecoveries: number;
-  };
-  daily: Array<{
-    date: string;
-    confirmedRevenueCents: number;
-    recoveredRevenueCents: number;
-  }>;
-  recentOutcomes: Array<{
-    jobId: string;
-    customerName: string;
-    serviceName: string;
-    occurredAt: string;
-    revenueCents: number;
-  }>;
-}
-
 export interface AvailabilitySlot {
   barberId: string;
   barberName: string;
@@ -263,7 +236,6 @@ export interface AppointmentInput {
 export interface ReviveApi {
   getCalendar(date: string): Promise<CalendarResponse>;
   getCalendarRange(start: string, end: string): Promise<CalendarResponse>;
-  getDashboard(start: string, end: string): Promise<DashboardResponse>;
   getAvailability(input: {
     date: string;
     serviceId: string;

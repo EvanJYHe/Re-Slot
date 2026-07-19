@@ -26,7 +26,7 @@ interface CalendarPageProps {
   onMutated: () => Promise<void>;
 }
 
-const pixelsPerHour = 64;
+const pixelsPerHour = 80;
 const timelineStartHour = 6;
 const timelineEndHour = 24;
 
@@ -113,10 +113,8 @@ function AppointmentCard({ appointment, timezone, showBarber, onOpen, compact = 
       ) : (
         <>
           <strong className="block truncate font-semibold text-white">{appointment.customerName} · {appointment.serviceName}</strong>
-          <span className="mt-0.5 block truncate text-white/90">
-            <span>{timeLabel(appointment.startAt, timezone)}–{timeLabel(appointment.endAt, timezone)}</span>
-            {showBarber ? <span className="text-white/70"> · {appointment.barberName}</span> : null}
-          </span>
+          <span className="mt-0.5 block truncate text-white/90">{timeLabel(appointment.startAt, timezone)}–{timeLabel(appointment.endAt, timezone)}</span>
+          <span className="mt-0.5 block truncate text-[11px] text-white/70">{appointment.barberName}</span>
         </>
       )}
     </button>

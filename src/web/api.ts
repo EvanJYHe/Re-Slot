@@ -8,7 +8,6 @@ import type {
   CustomerDetail,
   CustomerNote,
   CustomerSummary,
-  DashboardResponse,
   OperationResult,
   OperatorWaitlistEntry,
   ReviveApi,
@@ -50,9 +49,6 @@ export const defaultApi: ReviveApi = {
   getCalendar: (date) => request<CalendarResponse>(`/api/v1/calendar?date=${encodeURIComponent(date)}`),
   getCalendarRange: (start, end) => request<CalendarResponse>(
     `/api/v1/calendar?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
-  ),
-  getDashboard: (start, end) => request<DashboardResponse>(
-    `/api/v1/dashboard?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
   ),
   getAvailability: (input) => {
     const query = new URLSearchParams({ date: input.date, serviceId: input.serviceId });
