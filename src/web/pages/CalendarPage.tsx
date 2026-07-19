@@ -27,7 +27,7 @@ interface CalendarPageProps {
 }
 
 const pixelsPerHour = 96;
-const timelineStartHour = 6;
+const timelineStartHour = 8;
 const timelineEndHour = 24;
 
 function localDate(iso: string, timezone: string): string {

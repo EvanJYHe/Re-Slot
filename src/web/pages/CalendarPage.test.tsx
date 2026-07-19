@@ -224,14 +224,14 @@ describe("CalendarPage", () => {
     expect(screen.queryByText("Sarah")).not.toBeInTheDocument();
   });
 
-  it("uses a viewport-sized 6 AM to midnight grid and compact copy for short appointments", () => {
+  it("uses a viewport-sized 8 AM to midnight grid and compact copy for short appointments", () => {
     render(<Harness />);
 
     const calendarRegion = screen.getByLabelText("Day calendar");
-    expect(calendarRegion).toHaveAttribute("data-start-hour", "6");
+    expect(calendarRegion).toHaveAttribute("data-start-hour", "8");
     expect(calendarRegion).toHaveAttribute("data-end-hour", "24");
     expect(calendarRegion).not.toHaveClass("overflow-x-auto");
-    expect(within(calendarRegion).getByText("6 AM")).not.toHaveClass("-translate-y-1/2");
+    expect(within(calendarRegion).getByText("8 AM")).not.toHaveClass("-translate-y-1/2");
     expect(within(calendarRegion).getByText("11 PM")).toBeInTheDocument();
     expect(within(calendarRegion).getByTestId("calendar-scroll-region")).toHaveClass("overflow-y-auto");
 
