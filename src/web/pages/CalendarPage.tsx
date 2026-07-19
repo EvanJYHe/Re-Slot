@@ -26,7 +26,7 @@ interface CalendarPageProps {
   onMutated: () => Promise<void>;
 }
 
-const pixelsPerHour = 80;
+const pixelsPerHour = 96;
 const timelineStartHour = 6;
 const timelineEndHour = 24;
 
@@ -76,10 +76,9 @@ function HourLines({ startHour, endHour }: { startHour: number; endHour: number 
   );
 }
 
-function AppointmentCard({ appointment, timezone, showBarber, onOpen, compact = false, style }: {
+function AppointmentCard({ appointment, timezone, onOpen, compact = false, style }: {
   appointment: CalendarAppointment;
   timezone: string;
-  showBarber: boolean;
   onOpen: () => void;
   compact?: boolean;
   style: CSSProperties;
@@ -98,7 +97,7 @@ function AppointmentCard({ appointment, timezone, showBarber, onOpen, compact = 
       className={cn(
         "calendar-card z-10 overflow-hidden rounded-[6px] border border-white/20 text-left text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-colors focus-visible:z-30 focus-visible:outline-white",
         tone,
-        density === "compact" ? "px-2 py-1 text-[11px] leading-5" : "px-2.5 py-1.5 text-xs",
+        density === "compact" ? "px-2 py-1 text-[11px] leading-4" : "px-2.5 py-1.5 text-xs",
       )}
       data-density={density}
       data-visual="solid"
@@ -107,9 +106,10 @@ function AppointmentCard({ appointment, timezone, showBarber, onOpen, compact = 
       type="button"
     >
       {density === "compact" ? (
-        <strong className="block truncate font-semibold text-white">
-          {appointment.customerName} · {appointment.serviceName}{showBarber ? ` · ${appointment.barberName}` : ""}
-        </strong>
+        <>
+          <strong className="block truncate font-semibold text-white">{appointment.customerName} · {appointment.serviceName}</strong>
+          <span className="block truncate text-[10px] text-white/75">{timeLabel(appointment.startAt, timezone)} · {appointment.barberName}</span>
+        </>
       ) : (
         <>
           <strong className="block truncate font-semibold text-white">{appointment.customerName} · {appointment.serviceName}</strong>
@@ -221,7 +221,6 @@ function DayCalendar({ calendar, date, barberFilter, onAppointment, onRefill }: 
                     appointment={appointment}
                     key={appointment.id}
                     onOpen={() => onAppointment(appointment)}
-                    showBarber={barberFilter === "all"}
                     style={{
                       ...cardStyle(appointment.startAt, appointment.endAt, calendar.timezone, startHour * 60),
                       left: `${2 + index * width}%`,
@@ -314,7 +313,6 @@ function WeekCalendar({ calendar, dates, barberFilter, onAppointment, onRefill }
                       compact
                       key={appointment.id}
                       onOpen={() => onAppointment(appointment)}
-                      showBarber={barberFilter === "all"}
                       style={{
                         ...cardStyle(appointment.startAt, appointment.endAt, calendar.timezone, startHour * 60),
                         left: `${3 + index * width}%`,

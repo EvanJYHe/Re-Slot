@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 
-import { Button, StatusDot } from "../components/ui.js";
-import type { ChannelHealth, ReviveApi, SchedulingSettings } from "../types.js";
+import { Button } from "../components/ui.js";
+import type { ReviveApi, SchedulingSettings } from "../types.js";
 
 interface SettingsPageProps {
   api: ReviveApi;
-  channelHealth: ChannelHealth | undefined;
   refreshKey: number;
   onReset: () => Promise<void>;
 }
@@ -35,22 +34,7 @@ function PolicyToggle({ label, detail, checked, disabled, onChange }: {
   );
 }
 
-function ProviderStatus({ name, value }: { name: string; value: string | undefined }) {
-  const healthy = value === "configured" || value === "connected" || value === "healthy" || value === "mongodb";
-  const unavailable = value === "unavailable" || value === "disabled" || value === undefined;
-  const label = healthy ? (value === "configured" ? "Configured" : "Connected") : unavailable ? "Unavailable" : "Needs attention";
-  return (
-    <div aria-label={`${name} connection`} className="rounded-revive border border-line bg-[#fafbf9] p-4" role="status">
-      <span className="flex items-center justify-between gap-3">
-        <strong className="text-sm font-medium">{name}</strong>
-        <StatusDot tone={healthy ? "healthy" : unavailable ? "offline" : "warning"} />
-      </span>
-      <span className="mt-2 block text-xs text-muted">{label}</span>
-    </div>
-  );
-}
-
-export function SettingsPage({ api, channelHealth, refreshKey, onReset }: SettingsPageProps) {
+export function SettingsPage({ api, refreshKey, onReset }: SettingsPageProps) {
   const [settings, setSettings] = useState<SchedulingSettings>();
   const [status, setStatus] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -204,19 +188,6 @@ export function SettingsPage({ api, channelHealth, refreshKey, onReset }: Settin
               </div>
             </div>
           )}
-        </section>
-
-        <section className="rounded-xl border border-line bg-panel shadow-panel">
-          <div className="border-b border-line px-5 py-4">
-            <h3 className="text-sm font-semibold">Connections</h3>
-            <p className="mt-1 text-xs text-muted">Configuration health only. Credentials remain server-side.</p>
-          </div>
-          <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
-            <ProviderStatus name="MongoDB" value={channelHealth?.mongodb} />
-            <ProviderStatus name="Telegram" value={channelHealth?.telegram} />
-            <ProviderStatus name="Backboard" value={channelHealth?.backboard} />
-            <ProviderStatus name="ElevenLabs" value={channelHealth?.elevenlabs} />
-          </div>
         </section>
 
         <section className="rounded-xl border border-line bg-panel px-5 py-4 shadow-panel">

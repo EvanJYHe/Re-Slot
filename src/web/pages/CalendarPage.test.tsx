@@ -238,7 +238,8 @@ describe("CalendarPage", () => {
     const shortAppointment = screen.getByRole("button", { name: /Eli, Beard sculpt/ });
     expect(shortAppointment).toHaveAttribute("data-density", "compact");
     expect(shortAppointment).toHaveAttribute("data-visual", "solid");
-    expect(within(shortAppointment).getByText("Eli · Beard sculpt · Devon")).toBeInTheDocument();
+    expect(within(shortAppointment).getByText("Eli · Beard sculpt")).toBeInTheDocument();
+    expect(within(shortAppointment).getByText("3:00 PM · Devon")).toBeInTheDocument();
 
     const fullAppointment = screen.getByRole("button", { name: /Sarah, Signature haircut/ });
     expect(within(fullAppointment).getByText("6:00 PM–7:00 PM")).toBeInTheDocument();

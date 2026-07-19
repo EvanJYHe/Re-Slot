@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsPage } from "./SettingsPage.js";
-import type { ChannelHealth, ReviveApi, SchedulingSettings } from "../types.js";
+import type { ReviveApi, SchedulingSettings } from "../types.js";
 
 const settings: SchedulingSettings = {
   timezone: "America/Toronto",
@@ -17,13 +17,6 @@ const settings: SchedulingSettings = {
   pastCustomerOutreachEnabled: true,
   maxDiscountPercent: 15,
   offerExpirySeconds: 120,
-};
-
-const channelHealth: ChannelHealth = {
-  mongodb: "mongodb",
-  telegram: "configured",
-  backboard: "configured",
-  elevenlabs: "unavailable",
 };
 
 function api(): ReviveApi {
@@ -56,11 +49,10 @@ function api(): ReviveApi {
 afterEach(cleanup);
 
 describe("SettingsPage", () => {
-  it("shows only behavior-backed automation and safe provider health", async () => {
+  it("shows only behavior-backed automation settings", async () => {
     render(
       <SettingsPage
         api={api()}
-        channelHealth={channelHealth}
         onReset={vi.fn(async () => undefined)}
         refreshKey={0}
       />,
@@ -68,7 +60,7 @@ describe("SettingsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Automation" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Connections" })).not.toBeInTheDocument();
     for (const label of [
       "Automatic vacancy refill",
       "Offer earlier appointments",
@@ -81,10 +73,6 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("spinbutton", { name: "Maximum appointment moves" })).toHaveValue(3);
     expect(screen.getByRole("spinbutton", { name: "Maximum discount percent" })).toHaveValue(15);
     expect(screen.getByRole("combobox", { name: "Offer expiry" })).toHaveValue("120");
-    for (const provider of ["MongoDB", "Telegram", "Backboard", "ElevenLabs"]) {
-      expect(screen.getByRole("status", { name: `${provider} connection` })).toBeInTheDocument();
-    }
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
     expect(screen.queryByText(/prompt editor|voice laboratory|analytics|API key/i)).not.toBeInTheDocument();
   });
 
@@ -95,7 +83,6 @@ describe("SettingsPage", () => {
     render(
       <SettingsPage
         api={client}
-        channelHealth={channelHealth}
         onReset={onReset}
         refreshKey={0}
       />,

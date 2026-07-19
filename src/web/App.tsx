@@ -173,7 +173,6 @@ export function DashboardApp({
           <div hidden={page !== "settings"}>
             <SettingsPage
               api={api}
-              channelHealth={calendar?.channelHealth}
               onReset={async () => {
                 setDomainVersion((version) => version + 1);
                 await refreshCalendar();
