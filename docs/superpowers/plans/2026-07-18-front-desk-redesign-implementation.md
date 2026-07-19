@@ -573,7 +573,7 @@ Deploy the existing one-service Railway project without printing secrets. Wait f
 
 Execution note: the clean feature snapshot reached Railway `SUCCESS`; health, HTML assets, SSE, operator auth, calendar data, and public Chrome QA passed. ElevenLabs' live REVIVE agent and HT6 number assignment were verified. A real outbound Sarah call still requires the external `SARAH_PHONE` variable, and Josh/Alex must open their private Telegram links before the live-account walkthrough.
 
-- [ ] **Step 6: Request review and finish the branch**
+- [x] **Step 6: Request review and finish the branch**
 
 Review the diff against the approved spec, run `git diff --check`, inspect that no secret or `.env` is tracked, and use `superpowers:finishing-a-development-branch`. Merge the verified feature branch into `main` and push only after the completion checks remain green.
 
