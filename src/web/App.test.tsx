@@ -116,7 +116,7 @@ describe("DashboardApp shell", () => {
     render(<DashboardApp api={client} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
 
     expect(await screen.findByRole("heading", { name: "REVIVE" })).toBeInTheDocument();
-    for (const destination of ["Calendar", "Agent", "Customers", "Settings"]) {
+    for (const destination of ["Dashboard", "Calendar", "Agent", "Customers", "Settings"]) {
       expect(screen.getByRole("button", { name: destination })).toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
@@ -126,6 +126,16 @@ describe("DashboardApp shell", () => {
     expect(screen.queryByText(/living chair board/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/disciplines/i)).not.toBeInTheDocument();
     expect(client.getCalendarRange).toHaveBeenCalledWith("2026-07-20", "2026-07-20");
+  });
+
+  it("opens the source-backed impact dashboard", async () => {
+    const user = userEvent.setup();
+    render(<DashboardApp api={api()} initialDate="2026-07-20" eventSourceFactory={() => undefined} />);
+
+    await user.click(screen.getByRole("button", { name: "Dashboard" }));
+
+    expect(await screen.findByRole("heading", { name: "Impact" })).toBeInTheDocument();
+    expect(screen.getByText("$45.00")).toBeInTheDocument();
   });
 
   it("queries the authoritative range for each calendar view", async () => {
