@@ -66,6 +66,22 @@ function api(): ReviveApi {
       ...calendar(start),
       range: { start, end },
     })),
+    getDashboard: vi.fn(async (start: string, end: string) => ({
+      range: { start, end },
+      timezone: "America/Toronto",
+      metrics: {
+        recoveredRevenueCents: 0,
+        confirmedRevenueCents: 4500,
+        chairsRecovered: 0,
+        refillSuccessRate: 0,
+        averageRefillMinutes: 0,
+        chairUtilizationRate: 10,
+        activeWaitlist: 1,
+        activeRecoveries: 0,
+      },
+      daily: [{ date: start, confirmedRevenueCents: 4500, recoveredRevenueCents: 0 }],
+      recentOutcomes: [],
+    })),
     getAvailability: vi.fn(async () => ({
       date: "2026-07-20",
       timezone: "America/Toronto",

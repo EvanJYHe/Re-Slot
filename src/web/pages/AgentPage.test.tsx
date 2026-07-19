@@ -155,6 +155,7 @@ function api(overrides: Partial<ReviveApi> = {}): ReviveApi {
   return {
     getCalendar: vi.fn(async () => { throw new Error("unused"); }),
     getCalendarRange: vi.fn(async () => { throw new Error("unused"); }),
+    getDashboard: vi.fn(async () => { throw new Error("unused"); }),
     getAvailability: vi.fn(async () => { throw new Error("unused"); }),
     getSettings: vi.fn(async () => settings),
     patchSettings: vi.fn(async (patch) => ({ ...settings, ...patch })),

@@ -111,6 +111,33 @@ describe("REVIVE Fastify API", () => {
     });
   });
 
+  it("returns source-backed dashboard metrics for a validated date range", async () => {
+    const date = getDemoDate(now, config.timezone);
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/v1/dashboard?start=${date}&end=${date}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      range: { start: date, end: date },
+      timezone: config.timezone,
+      metrics: {
+        recoveredRevenueCents: 0,
+        confirmedRevenueCents: expect.any(Number),
+        chairsRecovered: 0,
+      },
+      daily: [expect.objectContaining({ date })],
+    });
+    expect(response.json().metrics.confirmedRevenueCents).toBeGreaterThan(0);
+
+    const invalid = await app.inject({
+      method: "GET",
+      url: "/api/v1/dashboard?start=2026-07-24&end=2026-07-20",
+    });
+    expect(invalid.statusCode).toBe(400);
+  });
+
   it("validates and persists settings patches", async () => {
     const response = await app.inject({
       method: "PATCH",

@@ -132,6 +132,7 @@ function api(): ReviveApi {
   return {
     getCalendar: vi.fn(async () => calendar()),
     getCalendarRange: vi.fn(async () => calendar()),
+    getDashboard: vi.fn(async () => { throw new Error("unused"); }),
     getAvailability: vi.fn(async () => ({
       date: "2026-07-20",
       timezone: "America/Toronto",

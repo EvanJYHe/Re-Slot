@@ -22,6 +22,21 @@ describe("REVIVE browser API", () => {
     );
   });
 
+  it("requests source-backed dashboard ranges", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ metrics: {}, daily: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await defaultApi.getDashboard("2026-07-20", "2026-07-24");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/dashboard?start=2026-07-20&end=2026-07-24",
+      expect.objectContaining({ headers: {} }),
+    );
+  });
+
   it("uses tokenless local operator reads and exposes no admin-session client", async () => {
     const fetchMock = vi.fn(async () => new Response("[]", {
       status: 200,
