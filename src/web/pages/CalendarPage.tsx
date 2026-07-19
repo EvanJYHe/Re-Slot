@@ -1,7 +1,8 @@
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { DateTime } from "luxon";
 
 import { ReviveApiError } from "../api.js";
+import { MiniMonth } from "../components/MiniMonth.js";
 import { Button, Drawer, IconButton, Modal, SegmentedControl, StatusDot, cn } from "../components/ui.js";
 import { movePeriod, periodLabel, periodRange, type CalendarView } from "../lib/dates.js";
 import type {
@@ -25,7 +26,9 @@ interface CalendarPageProps {
   onMutated: () => Promise<void>;
 }
 
-const pixelsPerHour = 72;
+const pixelsPerHour = 64;
+const timelineStartHour = 6;
+const timelineEndHour = 24;
 
 function localDate(iso: string, timezone: string): string {
   return DateTime.fromISO(iso).setZone(timezone).toISODate()!;
@@ -40,9 +43,17 @@ function minuteOfDay(iso: string, timezone: string): number {
   return value.hour * 60 + value.minute;
 }
 
+function durationMinutes(startAt: string, endAt: string): number {
+  return Math.max(0, DateTime.fromISO(endAt).diff(DateTime.fromISO(startAt), "minutes").minutes);
+}
+
+function initialScrollTop(_starts: string[], _timezone: string): number {
+  return 0;
+}
+
 function cardStyle(startAt: string, endAt: string, timezone: string, startMinutes: number): CSSProperties {
   const top = ((minuteOfDay(startAt, timezone) - startMinutes) / 60) * pixelsPerHour;
-  const duration = minuteOfDay(endAt, timezone) - minuteOfDay(startAt, timezone);
+  const duration = durationMinutes(startAt, endAt);
   const height = Math.max(32, (duration / 60) * pixelsPerHour - 4);
   return {
     "--card-top": `${top + 2}px`,
@@ -73,20 +84,41 @@ function AppointmentCard({ appointment, timezone, showBarber, onOpen, compact = 
   compact?: boolean;
   style: CSSProperties;
 }) {
+  const density = compact || durationMinutes(appointment.startAt, appointment.endAt) < 45
+    ? "compact"
+    : "full";
+  const tone = appointment.barberId === "maya"
+    ? "bg-[#356d9a] hover:bg-[#2e6088]"
+    : appointment.barberId === "devon"
+      ? "bg-[#765697] hover:bg-[#674a86]"
+      : "bg-[#177a55] hover:bg-[#126a49]";
   return (
     <button
       aria-label={`${appointment.customerName}, ${appointment.serviceName}, ${timeLabel(appointment.startAt, timezone)}`}
       className={cn(
-        "calendar-card z-10 overflow-hidden rounded-[6px] border border-[#cfe1d6] border-l-[3px] border-l-revive bg-[#f1f7f3] px-2.5 py-1.5 text-left transition-colors hover:bg-[#e9f3ed]",
-        compact ? "text-[11px]" : "text-xs",
+        "calendar-card z-10 overflow-hidden rounded-[6px] border border-white/20 text-left text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-colors focus-visible:z-30 focus-visible:outline-white",
+        tone,
+        density === "compact" ? "px-2 py-1 text-[11px] leading-5" : "px-2.5 py-1.5 text-xs",
       )}
+      data-density={density}
+      data-visual="solid"
       onClick={onOpen}
       style={style}
       type="button"
     >
-      <strong className="block truncate font-semibold text-ink">{appointment.customerName}</strong>
-      <span className="mt-0.5 block truncate text-muted">{appointment.serviceName}</span>
-      {showBarber ? <span className="mt-0.5 block truncate font-mono text-[9px] uppercase tracking-wide text-revive">{appointment.barberName}</span> : null}
+      {density === "compact" ? (
+        <strong className="block truncate font-semibold text-white">
+          {appointment.customerName} · {appointment.serviceName}{showBarber ? ` · ${appointment.barberName}` : ""}
+        </strong>
+      ) : (
+        <>
+          <strong className="block truncate font-semibold text-white">{appointment.customerName} · {appointment.serviceName}</strong>
+          <span className="mt-0.5 block truncate text-white/90">
+            <span>{timeLabel(appointment.startAt, timezone)}–{timeLabel(appointment.endAt, timezone)}</span>
+            {showBarber ? <span className="text-white/70"> · {appointment.barberName}</span> : null}
+          </span>
+        </>
+      )}
     </button>
   );
 }
@@ -100,14 +132,14 @@ function RefillCard({ refill, timezone, onOpen, style }: {
   return (
     <button
       aria-label={`${refill.customerState} Open refill timeline`}
-      className="calendar-card z-20 overflow-hidden rounded-[6px] border border-[#ead49f] bg-amber-soft px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-[#ffefca]"
+      className="calendar-card z-20 overflow-hidden rounded-[6px] border border-white/20 bg-[#c98318] px-2.5 py-1.5 text-left text-xs text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#b67514]"
       onClick={onOpen}
       style={style}
       type="button"
     >
-      <span className="flex items-center gap-1.5 font-medium text-[#72531e]"><StatusDot tone="warning" />Open chair</span>
-      <strong className="mt-1 block truncate font-semibold text-ink">{refill.customerState.replace(/\.$/, "")}</strong>
-      <span className="mt-0.5 block truncate text-[#80652f]">{timeLabel(refill.slotStartAt, timezone)} · {refill.barberName}</span>
+      <span className="flex items-center gap-1.5 font-medium text-white/85"><span className="h-1.5 w-1.5 rounded-full bg-white" />Open chair</span>
+      <strong className="mt-1 block truncate font-semibold text-white">{refill.customerState.replace(/\.$/, "")}</strong>
+      <span className="mt-0.5 block truncate text-white/85">{timeLabel(refill.slotStartAt, timezone)} · {refill.barberName}</span>
     </button>
   );
 }
@@ -115,9 +147,12 @@ function RefillCard({ refill, timezone, onOpen, style }: {
 function TimeRuler({ startHour, endHour }: { startHour: number; endHour: number }) {
   return (
     <div aria-hidden="true" className="relative border-r border-line bg-[#fafbf9]">
-      {Array.from({ length: endHour - startHour + 1 }, (_, index) => (
+      {Array.from({ length: endHour - startHour }, (_, index) => (
         <span
-          className="absolute right-3 -translate-y-1/2 font-mono text-[10px] text-muted"
+          className={cn(
+            "absolute right-3 font-mono text-[10px] text-muted",
+            index === 0 ? "translate-y-1.5" : "-translate-y-1/2",
+          )}
           key={index}
           style={{ top: index * pixelsPerHour }}
         >
@@ -135,71 +170,90 @@ function DayCalendar({ calendar, date, barberFilter, onAppointment, onRefill }: 
   onAppointment: (appointment: CalendarAppointment) => void;
   onRefill: (refill: ActiveRefill) => void;
 }) {
-  const startHour = Number(calendar.businessHours.start.slice(0, 2));
-  const endHour = Number(calendar.businessHours.end.slice(0, 2));
+  const startHour = timelineStartHour;
+  const endHour = timelineEndHour;
   const laneHeight = (endHour - startHour) * pixelsPerHour;
   const barbers = barberFilter === "all"
     ? calendar.barbers
     : calendar.barbers.filter((barber) => barber.id === barberFilter);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const visibleStarts = [
+    ...calendar.appointments
+      .filter((appointment) => appointment.status === "confirmed")
+      .filter((appointment) => barbers.some((barber) => barber.id === appointment.barberId))
+      .filter((appointment) => localDate(appointment.startAt, calendar.timezone) === date)
+      .map((appointment) => appointment.startAt),
+    ...calendar.activeRefills
+      .filter((refill) => barbers.some((barber) => barber.id === refill.barberId))
+      .filter((refill) => localDate(refill.slotStartAt, calendar.timezone) === date)
+      .map((refill) => refill.slotStartAt),
+  ];
+  useEffect(() => {
+    if (scrollRef.current !== null) scrollRef.current.scrollTop = initialScrollTop(visibleStarts, calendar.timezone);
+  }, [barberFilter, calendar.timezone, date, visibleStarts.join("|")]);
   return (
-    <section aria-label="Day calendar" className="overflow-x-auto rounded-xl border border-line bg-panel shadow-panel">
-      <div className="min-w-[760px]">
-        <div
-          className="grid min-h-12 border-b border-line bg-[#fafbf9]"
-          role="row"
-          style={{ gridTemplateColumns: `72px repeat(${barbers.length}, minmax(180px, 1fr))` }}
-        >
-          <div className="border-r border-line" />
-          {barbers.map((barber) => (
-            <div aria-label={barber.name} className="flex items-center border-r border-line px-4 text-sm font-semibold last:border-r-0" key={barber.id} role="columnheader">
-              {barber.name}
-            </div>
-          ))}
+    <section aria-label="Day calendar" className="flex h-full min-h-0 flex-col border-y border-line bg-panel" data-end-hour={endHour} data-start-hour={startHour}>
+      <div
+        className="grid min-h-11 shrink-0 border-b border-line bg-[#fafbf9]"
+        role="row"
+        style={{ gridTemplateColumns: "72px minmax(0, 1fr)" }}
+      >
+        <div className="border-r border-line" />
+        <div aria-label={barberFilter === "all" ? "All barbers" : barbers[0]?.name} className="flex items-center px-4 text-sm font-semibold" role="columnheader">
+          {barberFilter === "all" ? "All barbers" : barbers[0]?.name}
         </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-testid="calendar-scroll-region" ref={scrollRef}>
         <div
           className="grid"
-          style={{ gridTemplateColumns: `72px repeat(${barbers.length}, minmax(180px, 1fr))` }}
+          style={{ gridTemplateColumns: "72px minmax(0, 1fr)" }}
         >
           <TimeRuler endHour={endHour} startHour={startHour} />
-          {barbers.map((barber) => (
-            <div className="relative border-r border-line last:border-r-0" key={barber.id} style={{ height: laneHeight }}>
+          <div className="relative" style={{ height: laneHeight }}>
               <HourLines endHour={endHour} startHour={startHour} />
               {calendar.appointments
                 .filter((appointment) => appointment.status === "confirmed")
-                .filter((appointment) => appointment.barberId === barber.id)
+                .filter((appointment) => barbers.some((barber) => barber.id === appointment.barberId))
                 .filter((appointment) => localDate(appointment.startAt, calendar.timezone) === date)
-                .map((appointment) => (
+                .map((appointment) => {
+                  const index = Math.max(0, barbers.findIndex((barber) => barber.id === appointment.barberId));
+                  const width = barberFilter === "all" ? 96 / Math.max(1, barbers.length) : 96;
+                  return (
                   <AppointmentCard
                     appointment={appointment}
                     key={appointment.id}
                     onOpen={() => onAppointment(appointment)}
-                    showBarber={false}
+                    showBarber={barberFilter === "all"}
                     style={{
                       ...cardStyle(appointment.startAt, appointment.endAt, calendar.timezone, startHour * 60),
-                      left: 5,
-                      right: 5,
+                      left: `${2 + index * width}%`,
+                      width: `${width - 1}%`,
                     }}
                     timezone={calendar.timezone}
                   />
-                ))}
+                  );
+                })}
               {calendar.activeRefills
-                .filter((refill) => refill.barberId === barber.id)
+                .filter((refill) => barbers.some((barber) => barber.id === refill.barberId))
                 .filter((refill) => localDate(refill.slotStartAt, calendar.timezone) === date)
-                .map((refill) => (
+                .map((refill) => {
+                  const index = Math.max(0, barbers.findIndex((barber) => barber.id === refill.barberId));
+                  const width = barberFilter === "all" ? 96 / Math.max(1, barbers.length) : 96;
+                  return (
                   <RefillCard
                     key={refill.id}
                     onOpen={() => onRefill(refill)}
                     refill={refill}
                     style={{
                       ...cardStyle(refill.slotStartAt, refill.slotEndAt, calendar.timezone, startHour * 60),
-                      left: 5,
-                      right: 5,
+                      left: `${2 + index * width}%`,
+                      width: `${width - 1}%`,
                     }}
                     timezone={calendar.timezone}
                   />
-                ))}
-            </div>
-          ))}
+                  );
+                })}
+          </div>
         </div>
       </div>
     </section>
@@ -213,24 +267,38 @@ function WeekCalendar({ calendar, dates, barberFilter, onAppointment, onRefill }
   onAppointment: (appointment: CalendarAppointment) => void;
   onRefill: (refill: ActiveRefill) => void;
 }) {
-  const startHour = Number(calendar.businessHours.start.slice(0, 2));
-  const endHour = Number(calendar.businessHours.end.slice(0, 2));
+  const startHour = timelineStartHour;
+  const endHour = timelineEndHour;
   const laneHeight = (endHour - startHour) * pixelsPerHour;
   const visibleBarbers = barberFilter === "all"
     ? calendar.barbers
     : calendar.barbers.filter((barber) => barber.id === barberFilter);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const visibleStarts = [
+    ...calendar.appointments
+      .filter((appointment) => appointment.status === "confirmed")
+      .filter((appointment) => dates.includes(localDate(appointment.startAt, calendar.timezone)))
+      .filter((appointment) => visibleBarbers.some((barber) => barber.id === appointment.barberId))
+      .map((appointment) => appointment.startAt),
+    ...calendar.activeRefills
+      .filter((refill) => dates.includes(localDate(refill.slotStartAt, calendar.timezone)))
+      .map((refill) => refill.slotStartAt),
+  ];
+  useEffect(() => {
+    if (scrollRef.current !== null) scrollRef.current.scrollTop = initialScrollTop(visibleStarts, calendar.timezone);
+  }, [barberFilter, calendar.timezone, dates.join("|"), visibleStarts.join("|")]);
   return (
-    <section aria-label="Week calendar" className="overflow-x-auto rounded-xl border border-line bg-panel shadow-panel">
-      <div className="min-w-[920px]">
-        <div className="grid min-h-12 border-b border-line bg-[#fafbf9]" style={{ gridTemplateColumns: `72px repeat(${dates.length}, minmax(150px, 1fr))` }}>
-          <div className="border-r border-line" />
-          {dates.map((date) => (
-            <div className="flex items-center border-r border-line px-3 text-sm font-semibold last:border-r-0" key={date}>
-              {DateTime.fromISO(date).toFormat("ccc d")}
-            </div>
-          ))}
-        </div>
-        <div className="grid" style={{ gridTemplateColumns: `72px repeat(${dates.length}, minmax(150px, 1fr))` }}>
+    <section aria-label="Week calendar" className="flex h-full min-h-0 flex-col border-y border-line bg-panel" data-end-hour={endHour} data-start-hour={startHour}>
+      <div className="grid min-h-11 shrink-0 border-b border-line bg-[#fafbf9]" style={{ gridTemplateColumns: `72px repeat(${dates.length}, minmax(0, 1fr))` }}>
+        <div className="border-r border-line" />
+        {dates.map((date) => (
+          <div className="flex items-center border-r border-line px-3 text-sm font-semibold last:border-r-0" key={date}>
+            {DateTime.fromISO(date).toFormat("ccc d")}
+          </div>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-testid="calendar-scroll-region" ref={scrollRef}>
+        <div className="grid" style={{ gridTemplateColumns: `72px repeat(${dates.length}, minmax(0, 1fr))` }}>
           <TimeRuler endHour={endHour} startHour={startHour} />
           {dates.map((date) => (
             <div className="relative border-r border-line last:border-r-0" key={date} style={{ height: laneHeight }}>
@@ -293,7 +361,7 @@ function MonthCalendar({ calendar, anchorDate, dates, barberFilter, onSelectDate
   return (
     <section aria-label="Month calendar" className="overflow-hidden rounded-xl border border-line bg-panel shadow-panel">
       <div className="grid grid-cols-7 border-b border-line bg-[#fafbf9]">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <div className="border-r border-line px-3 py-2.5 text-xs font-medium text-muted last:border-r-0" key={day}>{day}</div>
         ))}
       </div>
@@ -555,11 +623,11 @@ export function CalendarPage({
   };
 
   return (
-    <section>
-      <div className="border-b border-line bg-panel px-5 py-4 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-line bg-panel px-5 py-3 lg:px-7">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h2 className="mr-3 text-xl font-semibold tracking-[-0.02em]">Calendar</h2>
+            <h2 className="mr-3 text-lg font-semibold tracking-[-0.02em]">Calendar</h2>
             <IconButton aria-label="Previous period" onClick={() => onAnchorDateChange(movePeriod(anchorDate, view, -1))}>‹</IconButton>
             <IconButton aria-label="Next period" onClick={() => onAnchorDateChange(movePeriod(anchorDate, view, 1))}>›</IconButton>
             <strong className="min-w-40 text-sm font-medium">{periodLabel(anchorDate, view)}</strong>
@@ -582,30 +650,40 @@ export function CalendarPage({
             </Button>
           </div>
         </div>
-        <div className="mt-4 flex items-center gap-1.5">
-          {[{ id: "all", name: "All" }, ...(calendar?.barbers ?? [])].map((barber) => (
-            <button
-              aria-pressed={barberFilter === barber.id}
-              className={cn(
-                "h-8 rounded-full border px-3.5 text-sm transition-colors",
-                barberFilter === barber.id
-                  ? "border-ink bg-ink text-white"
-                  : "border-line bg-panel text-muted hover:border-[#cbd2cc] hover:text-ink",
-              )}
-              key={barber.id}
-              onClick={() => onBarberFilterChange(barber.id)}
-              type="button"
-            >
-              {barber.name}
-            </button>
-          ))}
-          {loading ? <span className="ml-auto font-mono text-[10px] text-muted">Refreshing</span> : null}
-        </div>
       </div>
-      <div className="p-5 lg:p-8">
-        {calendar === undefined ? (
-          <div className="min-h-96 animate-pulse rounded-xl border border-line bg-panel" />
-        ) : view === "day" ? (
+      <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)] bg-panel">
+        <aside className="min-h-0 border-r border-line bg-[#fafbf9] px-4 py-5">
+          <MiniMonth anchorDate={anchorDate} onSelect={selectMonthDate} />
+          <div className="mt-6 border-t border-line pt-5">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Barbers</span>
+              {loading ? <span className="font-mono text-[9px] text-muted">Syncing</span> : null}
+            </div>
+            <div className="space-y-1">
+              {[{ id: "all", name: "All barbers" }, ...(calendar?.barbers ?? [])].map((barber) => (
+                <button
+                  aria-pressed={barberFilter === barber.id}
+                  className={cn(
+                    "flex h-9 w-full items-center rounded-md px-2.5 text-left text-sm transition-colors",
+                    barberFilter === barber.id
+                      ? "bg-[#e7eee8] font-medium text-ink"
+                      : "text-muted hover:bg-[#eef1ed] hover:text-ink",
+                  )}
+                  key={barber.id}
+                  onClick={() => onBarberFilterChange(barber.id)}
+                  type="button"
+                >
+                  <span className={cn("mr-2 h-2 w-2 rounded-full border", barberFilter === barber.id ? "border-revive bg-revive" : "border-[#b9c0ba]")} />
+                  {barber.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+        <div className={cn("min-h-0 min-w-0", view === "month" ? "overflow-y-auto p-4" : "") }>
+          {calendar === undefined ? (
+            <div className="min-h-96 animate-pulse border border-line bg-panel" />
+          ) : view === "day" ? (
           <DayCalendar
             barberFilter={barberFilter}
             calendar={calendar}
@@ -629,7 +707,8 @@ export function CalendarPage({
             dates={range.visibleDates}
             onSelectDate={selectMonthDate}
           />
-        )}
+          )}
+        </div>
       </div>
       {selectedAppointment === undefined || editor === "edit" || calendar === undefined ? null : (
         <AppointmentDrawer

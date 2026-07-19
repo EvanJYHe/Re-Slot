@@ -5,7 +5,7 @@
 
 ## Objective
 
-Polish the existing light REVIVE interface without replacing its information architecture or applying the previously discussed dark/liquid-glass theme. Add a compact, source-backed impact dashboard and make the calendar behave like a professional desktop scheduling surface: it fills the available application viewport, exposes a complete 24-hour timeline, avoids browser-page and horizontal overflow, and keeps short appointments legible.
+Polish the existing light REVIVE interface without replacing its information architecture or applying the previously discussed dark/liquid-glass theme. Add a compact, source-backed impact dashboard and make the calendar behave like a professional desktop scheduling surface: it fills the available application viewport, exposes the useful 6 AM-to-midnight timeline, avoids browser-page and horizontal overflow, and keeps short appointments legible.
 
 ## Visual direction
 
@@ -26,12 +26,15 @@ Polish the existing light REVIVE interface without replacing its information arc
 
 ### Viewport and scrolling
 
-- Day and Week use a 24-hour timeline from midnight through midnight.
+- Day and Week use an internally scrollable timeline from 6 AM through midnight.
+- A compact mini-month and the barber filters live in a quiet left rail instead of consuming a second toolbar row.
+- All-barber Day view uses one combined schedule lane; choosing a barber keeps the same lane and filters its contents.
+- Week uses seven date columns from Sunday through Saturday.
 - The calendar occupies the remaining viewport below the global header and calendar toolbar.
 - Only the time-grid body scrolls vertically, matching the Google Calendar desktop pattern. The browser page does not scroll to reach later hours.
 - Column headers and the time ruler remain sticky while the grid scrolls.
 - On first entry or date/view change, the grid positions itself one hour before the earliest confirmed appointment or active refill, capped to a useful morning default when no event exists.
-- The grid must not produce a horizontal scrollbar at the 1512px demo viewport. All-barber Day and five-day Week columns share the available width; a selected barber expands to the full schedule width.
+- The grid must not produce a horizontal scrollbar at the 1512px demo viewport. The combined Day lane and seven-day Week share the available width.
 
 ### Appointment cards
 
@@ -84,10 +87,10 @@ The API also returns a daily series for confirmed revenue and recovered revenue 
 
 - Unit tests cover dashboard metric calculations, including discount arithmetic, move-only jobs, terminal failures, utilization, empty ranges, and daily reconciliation.
 - API tests cover dashboard range validation and response shape.
-- React tests cover Dashboard navigation/rendering, 24-hour Day/Week grids, compact short appointments, sticky/full-height calendar structure, and absence of the old nested horizontal-scroll wrapper.
+- React tests cover Dashboard navigation/rendering, 6 AM-to-midnight Day/Week grids, compact short appointments, full-height calendar structure, and absence of the old nested horizontal-scroll wrapper.
 - Existing scheduling, provider, Agent, Customer, Settings, and calendar mutation tests remain green.
 - Browser QA uses local Chrome through browser-harness against the production-shaped app at `http://localhost:3100`, at 1512×753 and a narrower desktop viewport.
 
 ## Completion criteria
 
-The change is complete when the built application opens at `http://localhost:3100`, the current light UI feels deliberately refined, the Dashboard reports source-backed impact, the Day and Week calendars expose all 24 hours within a viewport-sized workspace, short appointments never clip, the supported demo viewport has no horizontal scrollbar, and automated/browser verification passes.
+The change is complete when the built application opens at `http://localhost:3100`, the current light UI feels deliberately refined, the Dashboard reports source-backed impact, the Day and Week calendars expose 6 AM through midnight within a viewport-sized workspace, short appointments never clip, the supported demo viewport has no horizontal scrollbar, and automated/browser verification passes.

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a source-backed impact dashboard and rebuild Day/Week calendar presentation into a viewport-sized, 24-hour, non-clipping scheduling workspace while preserving REVIVE's current light visual identity.
+**Goal:** Add a source-backed impact dashboard and rebuild Day/Week calendar presentation into a viewport-sized, 6 AM-to-midnight, non-clipping scheduling workspace while preserving REVIVE's current light visual identity.
 
-**Architecture:** Add a pure dashboard projection beside the existing operator projections, expose it through one validated Fastify route, and consume it through the existing typed web API. Keep calendar data authoritative and change only rendering geometry: a fixed application workspace contains a vertically scrollable 24-hour grid with sticky headers and explicit compact/full appointment variants.
+**Architecture:** Add a pure dashboard projection beside the existing operator projections, expose it through one validated Fastify route, and consume it through the existing typed web API. Keep calendar data authoritative and change only rendering geometry: a fixed application workspace contains a left mini-month/filter rail and a vertically scrollable 6 AM-to-midnight grid with explicit compact/full appointment variants.
 
 **Tech Stack:** Strict TypeScript, React, Tailwind CSS 3.4, Fastify, Luxon, MongoDB-backed `ReviveStore`, Vitest, React Testing Library, browser-harness.
 
@@ -71,7 +71,7 @@
 - [ ] **Step 4: Run targeted tests and typecheck.**
 - [ ] **Step 5: Commit `feat: add operator impact dashboard`.**
 
-### Task 4: Viewport-sized 24-hour calendar
+### Task 4: Viewport-sized calendar workspace
 
 **Files:**
 - Modify: `src/web/pages/CalendarPage.tsx`
@@ -80,11 +80,11 @@
 - Modify: `src/web/styles.css`
 
 **Interfaces:**
-- Day and Week render `data-start-hour="0"`, `data-end-hour="24"`, `data-calendar-scroll-region`, sticky headers, and no `overflow-x-auto` desktop wrapper.
+- Day and Week render `data-start-hour="6"`, `data-end-hour="24"`, a dedicated calendar scroll region, and no `overflow-x-auto` desktop wrapper.
 
-- [ ] **Step 1: Add failing tests asserting 12 AM and 11 PM labels, 24-hour geometry markers, a dedicated vertical scroll region, and absence of the old horizontal-scroll class.** Add a 30-minute beard appointment and assert `data-density="compact"` with one visible line.
+- [x] **Step 1: Add failing tests asserting 6 AM and 11 PM labels, timeline geometry markers, a dedicated vertical scroll region, and absence of the old horizontal-scroll class.** Add a 30-minute beard appointment and assert `data-density="compact"` with one visible line.
 - [ ] **Step 2: Run `npx vitest run src/web/pages/CalendarPage.test.tsx` and verify failures describe the old 10–20 geometry/clipping behavior.**
-- [ ] **Step 3: Set calendar geometry to 0–24, wrap header/body in a viewport-height workspace, make headers sticky, remove the rounded shadow container and desktop horizontal scroll, and auto-position the scroll region near the earliest event.**
+- [x] **Step 3: Set calendar geometry to 6–24, wrap header/body in a viewport-height workspace, add the left mini-month/filter rail, remove the rounded shadow container and desktop horizontal scroll, and keep the initial view anchored at 6 AM.**
 - [ ] **Step 4: Implement explicit compact/full card markup based on appointment duration.** Compact copy is `${customerName} · ${serviceName}` on one line; full copy uses two lines.
 - [ ] **Step 5: Run targeted tests and typecheck.**
 - [ ] **Step 6: Commit `fix: make calendar viewport sized and legible`.**

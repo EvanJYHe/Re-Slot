@@ -24,12 +24,12 @@ export function periodRange(anchorDate: string, view: CalendarView): CalendarPer
     return { start: anchorDate, end: anchorDate, visibleDates: [anchorDate] };
   }
   if (view === "week") {
-    const start = anchor.minus({ days: anchor.weekday - 1 });
-    const visibleDates = isoDates(start, 5);
+    const start = anchor.minus({ days: anchor.weekday % 7 });
+    const visibleDates = isoDates(start, 7);
     return { start: visibleDates[0]!, end: visibleDates.at(-1)!, visibleDates };
   }
   const firstOfMonth = anchor.startOf("month");
-  const start = firstOfMonth.minus({ days: firstOfMonth.weekday - 1 });
+  const start = firstOfMonth.minus({ days: firstOfMonth.weekday % 7 });
   const visibleDates = isoDates(start, 42);
   return { start: visibleDates[0]!, end: visibleDates.at(-1)!, visibleDates };
 }

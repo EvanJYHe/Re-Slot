@@ -121,7 +121,7 @@ describe("DashboardApp shell", () => {
     }
     expect(screen.getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Calendar" })).toBeInTheDocument();
-    expect(screen.getByText("Sarah")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sarah, Signature haircut/ })).toBeInTheDocument();
     expect(screen.getByText("Live updates unavailable")).toBeInTheDocument();
     expect(screen.queryByText(/living chair board/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/disciplines/i)).not.toBeInTheDocument();
@@ -145,9 +145,9 @@ describe("DashboardApp shell", () => {
 
     await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-07-20", "2026-07-20"));
     await user.click(screen.getByRole("button", { name: "Week" }));
-    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-07-20", "2026-07-24"));
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-07-19", "2026-07-25"));
     await user.click(screen.getByRole("button", { name: "Month" }));
-    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-06-29", "2026-08-09"));
+    await waitFor(() => expect(client.getCalendarRange).toHaveBeenLastCalledWith("2026-06-28", "2026-08-08"));
   });
 
   it("opens scheduling directly from the local Calendar workspace", async () => {
