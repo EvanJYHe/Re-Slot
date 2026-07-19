@@ -1,6 +1,6 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import rawBody from "fastify-raw-body";
 import { DateTime } from "luxon";
 import { z, ZodError } from "zod";
@@ -91,45 +91,11 @@ const waitlistPatchSchema = z.object({
   operatorNote: z.string().trim().max(500).nullable().optional(),
 }).strict();
 
-function safePinEqual(provided: string, expected: string): boolean {
-  const left = Buffer.from(provided);
-  const right = Buffer.from(expected);
-  return left.length === right.length && timingSafeEqual(left, right);
-}
-
 function safeSecretEqual(provided: string | undefined, expected: string | undefined): boolean {
   if (provided === undefined || expected === undefined) return false;
   const left = Buffer.from(provided);
   const right = Buffer.from(expected);
   return left.length === right.length && timingSafeEqual(left, right);
-}
-
-function signSession(config: AppConfig, issuedAt: string): string {
-  const payload = Buffer.from(JSON.stringify({
-    scope: "operator",
-    exp: DateTime.fromISO(issuedAt).plus({ hours: 1 }).toUnixInteger(),
-  })).toString("base64url");
-  const signature = createHmac("sha256", config.adminSessionSecret).update(payload).digest("base64url");
-  return `${payload}.${signature}`;
-}
-
-function verifySession(request: FastifyRequest, config: AppConfig, now: string): boolean {
-  const authorization = request.headers.authorization;
-  if (authorization === undefined || !authorization.startsWith("Bearer ")) return false;
-  const token = authorization.slice("Bearer ".length);
-  const [payload, signature, extra] = token.split(".");
-  if (payload === undefined || signature === undefined || extra !== undefined) return false;
-  const expected = createHmac("sha256", config.adminSessionSecret).update(payload).digest("base64url");
-  const suppliedBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-  if (suppliedBuffer.length !== expectedBuffer.length || !timingSafeEqual(suppliedBuffer, expectedBuffer)) return false;
-  try {
-    const parsed = z.object({ scope: z.literal("operator"), exp: z.number().int() })
-      .parse(JSON.parse(Buffer.from(payload, "base64url").toString("utf8")));
-    return parsed.exp > DateTime.fromISO(now).toUnixInteger();
-  } catch {
-    return false;
-  }
 }
 
 function sendOperation(reply: FastifyReply, result: OperationResult) {
@@ -177,12 +143,6 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     encoding: "utf8",
     runFirst: true,
   });
-  const operatorOnly = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!verifySession(request, options.config, clock())) {
-      return reply.status(401).send({ error: "unauthorized" });
-    }
-  };
-
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof ZodError) {
       void reply.status(400).send({
@@ -334,7 +294,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   app.get("/api/v1/settings", async () => (await options.store.read()).settings);
 
-  app.patch("/api/v1/settings", { preHandler: operatorOnly }, async (request) => {
+  app.patch("/api/v1/settings", async (request) => {
     const patch = settingsPatchSchema.parse(request.body);
     return options.store.transaction((state) => {
       state.settings = { ...state.settings, ...patch } as SchedulingSettings;
@@ -349,7 +309,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     });
   });
 
-  app.get("/api/v1/availability", { preHandler: operatorOnly }, async (request, reply) => {
+  app.get("/api/v1/availability", async (request, reply) => {
     const query = availabilityQuerySchema.parse(request.query);
     const date = DateTime.fromISO(query.date, { zone: options.config.timezone });
     if (!date.isValid || date.toISODate() !== query.date) {
@@ -379,7 +339,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     };
   });
 
-  app.post("/api/v1/appointments", { preHandler: operatorOnly }, async (request, reply) => {
+  app.post("/api/v1/appointments", async (request, reply) => {
     const input = appointmentCreateSchema.parse(request.body);
     const result = await options.engine.book({
       actor: { provider: "admin" },
@@ -393,7 +353,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return sendOperation(reply, result);
   });
 
-  app.patch<{ Params: { id: string } }>("/api/v1/appointments/:id", { preHandler: operatorOnly }, async (request, reply) => {
+  app.patch<{ Params: { id: string } }>("/api/v1/appointments/:id", async (request, reply) => {
     const input = appointmentMoveSchema.parse(request.body);
     const result = await options.engine.reschedule({
       actor: { provider: "admin" },
@@ -406,7 +366,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return sendOperation(reply, result);
   });
 
-  app.post<{ Params: { id: string } }>("/api/v1/appointments/:id/cancel", { preHandler: operatorOnly }, async (request, reply) => {
+  app.post<{ Params: { id: string } }>("/api/v1/appointments/:id/cancel", async (request, reply) => {
     const result = await options.engine.cancel({
       actor: { provider: "admin" },
       appointmentId: request.params.id,
@@ -415,17 +375,17 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return sendOperation(reply, result);
   });
 
-  app.get("/api/v1/customers", { preHandler: operatorOnly }, async (request) => {
+  app.get("/api/v1/customers", async (request) => {
     const query = z.object({ q: z.string().max(100).optional() }).strict().parse(request.query);
     return projectCustomerList(await options.store.read(), query.q ?? "");
   });
 
-  app.get<{ Params: { id: string } }>("/api/v1/customers/:id", { preHandler: operatorOnly }, async (request, reply) => {
+  app.get<{ Params: { id: string } }>("/api/v1/customers/:id", async (request, reply) => {
     const detail = projectCustomerDetail(await options.store.read(), request.params.id);
     return detail ?? reply.status(404).send({ error: "not_found" });
   });
 
-  app.patch<{ Params: { id: string } }>("/api/v1/customers/:id", { preHandler: operatorOnly }, async (request, reply) => {
+  app.patch<{ Params: { id: string } }>("/api/v1/customers/:id", async (request, reply) => {
     const patch = customerPatchSchema.parse(request.body);
     const found = await options.store.transaction((state) => {
       const customer = state.customers.find((candidate) => candidate.id === request.params.id);
@@ -444,7 +404,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return projectCustomerDetail(await options.store.read(), request.params.id)!;
   });
 
-  app.post<{ Params: { id: string } }>("/api/v1/customers/:id/notes", { preHandler: operatorOnly }, async (request, reply) => {
+  app.post<{ Params: { id: string } }>("/api/v1/customers/:id/notes", async (request, reply) => {
     const input = customerNoteSchema.parse(request.body);
     const result = await options.store.transaction((state) => {
       const customer = state.customers.find((candidate) => candidate.id === request.params.id);
@@ -469,20 +429,20 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return result ?? reply.status(404).send({ error: "not_found" });
   });
 
-  app.get("/api/v1/conversations", { preHandler: operatorOnly }, async () => (
+  app.get("/api/v1/conversations", async () => (
     projectConversationList(await options.store.read())
   ));
 
-  app.get<{ Params: { id: string } }>("/api/v1/conversations/:id", { preHandler: operatorOnly }, async (request, reply) => {
+  app.get<{ Params: { id: string } }>("/api/v1/conversations/:id", async (request, reply) => {
     const detail = projectConversationDetail(await options.store.read(), request.params.id);
     return detail ?? reply.status(404).send({ error: "not_found" });
   });
 
-  app.get("/api/v1/waitlist", { preHandler: operatorOnly }, async () => (
+  app.get("/api/v1/waitlist", async () => (
     projectWaitlist(await options.store.read())
   ));
 
-  app.patch<{ Params: { id: string } }>("/api/v1/waitlist/:id", { preHandler: operatorOnly }, async (request, reply) => {
+  app.patch<{ Params: { id: string } }>("/api/v1/waitlist/:id", async (request, reply) => {
     const patch = waitlistPatchSchema.parse(request.body);
     const found = await options.store.transaction((state) => {
       const entry = state.waitlist.find((candidate) => candidate.id === request.params.id);
@@ -506,7 +466,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return projectWaitlist(await options.store.read()).find((entry) => entry.id === request.params.id)!;
   });
 
-  app.get("/api/v1/activity", { preHandler: operatorOnly }, async () => (
+  app.get("/api/v1/activity", async () => (
     projectActivity(await options.store.read())
   ));
 
@@ -565,19 +525,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     });
   });
 
-  app.post("/api/v1/admin/session", async (request, reply) => {
-    const body = z.object({ pin: z.string() }).parse(request.body);
-    if (!safePinEqual(body.pin, options.config.demoAdminPin)) {
-      return reply.status(401).send({ error: "invalid_pin" });
-    }
-    return { token: signSession(options.config, clock()), expiresInSeconds: 3_600 };
-  });
-
-  app.post("/api/v1/demo/reset", async (request, reply) => {
+  app.post("/api/v1/demo/reset", async () => {
     const currentTime = clock();
-    if (!verifySession(request, options.config, currentTime)) {
-      return reply.status(401).send({ error: "unauthorized" });
-    }
     const current = await options.store.read();
     const reset = createDemoState({
       now: currentTime,

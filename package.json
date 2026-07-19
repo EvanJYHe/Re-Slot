@@ -7,7 +7,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently -k -n api,web -c yellow,cyan \"tsx watch src/server/index.ts\" \"vite\"",
+    "dev": "concurrently -k -n api,web -c yellow,cyan \"PORT=3100 PUBLIC_BASE_URL=http://127.0.0.1:3100 tsx watch src/server/index.ts\" \"vite --host 127.0.0.1 --port 5174\"",
+    "local": "npm run build && NODE_ENV=production PORT=3100 PUBLIC_BASE_URL=http://127.0.0.1:3100 npm start",
     "build": "vite build && tsup src/server/index.ts --format esm --out-dir dist/server --sourcemap --clean",
     "start": "node dist/server/index.js",
     "test": "vitest",

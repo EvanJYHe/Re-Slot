@@ -169,7 +169,7 @@ export async function createRuntime(
           backboard,
           telegram,
           ...(elevenLabsOutbound === undefined ? {} : { elevenLabs: elevenLabsOutbound }),
-          voiceTokenSecret: config.elevenLabsWebhookSecret ?? config.adminSessionSecret,
+          voiceTokenSecret: config.voiceActorSecret,
           clock,
         }),
         { workerId: `revive-${process.pid}` },

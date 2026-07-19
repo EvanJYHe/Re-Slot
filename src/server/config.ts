@@ -13,12 +13,10 @@ const booleanString = z.preprocess((value) => {
 
 const environmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-  PUBLIC_BASE_URL: z.url().default("http://localhost:3000"),
+  PORT: z.coerce.number().int().min(1).max(65_535).default(3100),
+  PUBLIC_BASE_URL: z.url().default("http://127.0.0.1:3100"),
   SHOP_TIMEZONE: z.string().min(1).default("America/Toronto"),
   DEMO_MODE: booleanString.default(true),
-  DEMO_ADMIN_PIN: z.string().min(4).default("4242"),
-  ADMIN_SESSION_SECRET: optionalString,
   DATA_STORE: z.enum(["auto", "memory", "mongodb"]).default("auto"),
   MONGODB_URI: optionalUrl,
   MONGODB_DB: z.string().min(1).default("revive"),
@@ -39,8 +37,7 @@ export interface AppConfig {
   publicBaseUrl: string;
   timezone: string;
   demoMode: boolean;
-  demoAdminPin: string;
-  adminSessionSecret: string;
+  voiceActorSecret: string;
   dataStore: "auto" | "memory" | "mongodb";
   mongoUri: string | undefined;
   mongoDatabase: string;
@@ -57,8 +54,9 @@ export interface AppConfig {
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = environmentSchema.parse(environment);
-  const fallbackSessionSecret = createHash("sha256")
-    .update(`${parsed.DEMO_ADMIN_PIN}:${parsed.PUBLIC_BASE_URL}:revive-admin-session`)
+  const providerSecret = parsed.ELEVENLABS_WEBHOOK_SECRET ?? parsed.TELEGRAM_WEBHOOK_SECRET;
+  const voiceActorSecret = providerSecret ?? createHash("sha256")
+    .update("revive-local-voice-actor")
     .digest("hex");
   return {
     nodeEnv: parsed.NODE_ENV,
@@ -66,8 +64,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     publicBaseUrl: parsed.PUBLIC_BASE_URL,
     timezone: parsed.SHOP_TIMEZONE,
     demoMode: parsed.DEMO_MODE,
-    demoAdminPin: parsed.DEMO_ADMIN_PIN,
-    adminSessionSecret: parsed.ADMIN_SESSION_SECRET ?? fallbackSessionSecret,
+    voiceActorSecret,
     dataStore: parsed.DATA_STORE,
     mongoUri: parsed.MONGODB_URI,
     mongoDatabase: parsed.MONGODB_DB,

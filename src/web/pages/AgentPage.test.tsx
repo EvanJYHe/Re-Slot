@@ -158,7 +158,6 @@ function api(overrides: Partial<ReviveApi> = {}): ReviveApi {
     getAvailability: vi.fn(async () => { throw new Error("unused"); }),
     getSettings: vi.fn(async () => settings),
     patchSettings: vi.fn(async (patch) => ({ ...settings, ...patch })),
-    createAdminSession: vi.fn(async () => ({ token: "operator-token" })),
     resetDemo: vi.fn(async () => ({ status: "reset", demoDate: "2026-07-20" })),
     getCustomers: vi.fn(async () => []),
     getCustomer: vi.fn(async () => { throw new Error("unused"); }),
@@ -180,7 +179,7 @@ afterEach(cleanup);
 
 describe("AgentPage", () => {
   it("renders real conversations in the locked list, ledger, and context structure", async () => {
-    render(<AgentPage api={api()} refreshKey={0} token="operator-token" />);
+    render(<AgentPage api={api()} refreshKey={0} />);
 
     expect(await screen.findByRole("heading", { name: "Conversations" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Conversation" })).toBeInTheDocument();
@@ -205,7 +204,7 @@ describe("AgentPage", () => {
   });
 
   it("shows an honest empty state when no provider interactions exist", async () => {
-    render(<AgentPage api={api({ getConversations: vi.fn(async () => []) })} refreshKey={0} token="operator-token" />);
+    render(<AgentPage api={api({ getConversations: vi.fn(async () => []) })} refreshKey={0} />);
 
     expect(await screen.findByText("Real Telegram messages and voice calls will appear here as they happen.")).toBeInTheDocument();
     expect(screen.queryByText("Sample conversation")).not.toBeInTheDocument();
@@ -214,7 +213,7 @@ describe("AgentPage", () => {
   it("supervises waitlist state and private notes without exposing provider controls", async () => {
     const user = userEvent.setup();
     const client = api();
-    render(<AgentPage api={client} refreshKey={0} token="operator-token" />);
+    render(<AgentPage api={client} refreshKey={0} />);
 
     await user.click(screen.getByRole("button", { name: "Waitlist" }));
     const panel = await screen.findByRole("region", { name: "Open waitlist" });
@@ -225,7 +224,6 @@ describe("AgentPage", () => {
     await waitFor(() => expect(client.patchWaitlist).toHaveBeenCalledWith(
       "waitlist-alex",
       { status: "paused" },
-      "operator-token",
     ));
 
     await user.click(within(panel).getByRole("button", { name: "Add note for Alex" }));
@@ -234,7 +232,6 @@ describe("AgentPage", () => {
     await waitFor(() => expect(client.patchWaitlist).toHaveBeenCalledWith(
       "waitlist-alex",
       { operatorNote: "Call after 4 PM." },
-      "operator-token",
     ));
 
     await user.click(within(panel).getByRole("button", { name: "Remove Alex" }));
@@ -242,7 +239,6 @@ describe("AgentPage", () => {
     await waitFor(() => expect(client.patchWaitlist).toHaveBeenCalledWith(
       "waitlist-alex",
       { status: "withdrawn" },
-      "operator-token",
     ));
 
     await user.click(screen.getByRole("button", { name: "Activity" }));

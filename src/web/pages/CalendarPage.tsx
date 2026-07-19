@@ -19,12 +19,10 @@ interface CalendarPageProps {
   view: CalendarView;
   barberFilter: string;
   loading: boolean;
-  operatorToken: string | undefined;
   onAnchorDateChange: (date: string) => void;
   onViewChange: (view: CalendarView) => void;
   onBarberFilterChange: (barberId: string) => void;
   onMutated: () => Promise<void>;
-  onRequireOperator: () => void;
 }
 
 const pixelsPerHour = 72;
@@ -364,11 +362,10 @@ function RefillDrawer({ refill, timezone, onClose }: {
   );
 }
 
-function AppointmentDrawer({ appointment, timezone, api, token, onClose, onEdit, onMutated }: {
+function AppointmentDrawer({ appointment, timezone, api, onClose, onEdit, onMutated }: {
   appointment: CalendarAppointment;
   timezone: string;
   api: ReviveApi;
-  token: string | undefined;
   onClose: () => void;
   onEdit: () => void;
   onMutated: () => Promise<void>;
@@ -376,10 +373,9 @@ function AppointmentDrawer({ appointment, timezone, api, token, onClose, onEdit,
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [status, setStatus] = useState<string>();
   const cancel = async () => {
-    if (token === undefined) return;
     setStatus("Cancelling…");
     try {
-      await api.cancelAppointment(appointment.id, token);
+      await api.cancelAppointment(appointment.id);
       await onMutated();
       onClose();
     } catch (error) {
@@ -400,20 +396,19 @@ function AppointmentDrawer({ appointment, timezone, api, token, onClose, onEdit,
       </dl>
       {status === undefined ? null : <p className="mb-3 text-sm text-muted">{status}</p>}
       <div className="flex gap-2 border-t border-line pt-5">
-        <Button disabled={token === undefined} onClick={onEdit}>Reschedule</Button>
+        <Button onClick={onEdit}>Reschedule</Button>
         {confirmingCancel
           ? <Button onClick={() => void cancel()} variant="danger">Confirm cancellation</Button>
-          : <Button disabled={token === undefined} onClick={() => setConfirmingCancel(true)} variant="ghost">Cancel appointment</Button>}
+          : <Button onClick={() => setConfirmingCancel(true)} variant="ghost">Cancel appointment</Button>}
       </div>
     </Drawer>
   );
 }
 
-function AppointmentEditor({ api, calendar, anchorDate, token, appointment, onClose, onSuccess }: {
+function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, onSuccess }: {
   api: ReviveApi;
   calendar: CalendarResponse;
   anchorDate: string;
-  token: string;
   appointment?: CalendarAppointment;
   onClose: () => void;
   onSuccess: () => Promise<void>;
@@ -432,7 +427,7 @@ function AppointmentEditor({ api, calendar, anchorDate, token, appointment, onCl
 
   useEffect(() => {
     let active = true;
-    void api.getCustomers("", token).then((result) => {
+    void api.getCustomers("").then((result) => {
       if (!active) return;
       setCustomers(result);
       if (!editing && result[0] !== undefined) setCustomerId(result[0].id);
@@ -441,14 +436,14 @@ function AppointmentEditor({ api, calendar, anchorDate, token, appointment, onCl
       if (active) setStatus("Customers could not be loaded.");
     });
     return () => { active = false; };
-  }, [api, editing, token]);
+  }, [api, editing]);
 
   useEffect(() => {
     if (serviceId === "" || barberId === "" || date === "") return;
     let active = true;
     setStartAt("");
     setStatus("Checking live availability…");
-    void api.getAvailability({ date, serviceId, barberId }, token).then((result) => {
+    void api.getAvailability({ date, serviceId, barberId }).then((result) => {
       if (!active) return;
       setSlots(result.slots);
       setStatus(result.slots.length === 0 ? "No live times are available for this selection." : "");
@@ -456,23 +451,23 @@ function AppointmentEditor({ api, calendar, anchorDate, token, appointment, onCl
       if (active) setStatus("Availability could not be loaded.");
     });
     return () => { active = false; };
-  }, [api, barberId, date, serviceId, token]);
+  }, [api, barberId, date, serviceId]);
 
   const submit = async () => {
     if (startAt === "" || barberId === "" || (!editing && customerId === "")) return;
     setStatus(editing ? "Moving appointment…" : "Booking appointment…");
     try {
       if (editing) {
-        await api.rescheduleAppointment(appointment.id, { barberId, startAt }, token);
+        await api.rescheduleAppointment(appointment.id, { barberId, startAt });
       } else {
-        await api.bookAppointment({ customerId, barberId, serviceId, startAt }, token);
+        await api.bookAppointment({ customerId, barberId, serviceId, startAt });
       }
       await onSuccess();
       onClose();
     } catch (error) {
       if (error instanceof ReviveApiError && error.status === 409) {
         setStatus(error.message);
-        const refreshed = await api.getAvailability({ date, serviceId, barberId }, token).catch(() => undefined);
+        const refreshed = await api.getAvailability({ date, serviceId, barberId }).catch(() => undefined);
         if (refreshed !== undefined) setSlots(refreshed.slots);
         return;
       }
@@ -543,25 +538,17 @@ export function CalendarPage({
   view,
   barberFilter,
   loading,
-  operatorToken,
   onAnchorDateChange,
   onViewChange,
   onBarberFilterChange,
   onMutated,
-  onRequireOperator,
 }: CalendarPageProps) {
   const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment>();
   const [selectedRefill, setSelectedRefill] = useState<ActiveRefill>();
   const [editor, setEditor] = useState<"new" | "edit">();
   const range = useMemo(() => periodRange(anchorDate, view), [anchorDate, view]);
 
-  const openEditor = () => {
-    if (operatorToken === undefined) {
-      onRequireOperator();
-      return;
-    }
-    setEditor("new");
-  };
+  const openEditor = () => setEditor("new");
   const selectMonthDate = (date: string) => {
     onAnchorDateChange(date);
     onViewChange("day");
@@ -652,7 +639,6 @@ export function CalendarPage({
           onEdit={() => setEditor("edit")}
           onMutated={onMutated}
           timezone={calendar.timezone}
-          token={operatorToken}
         />
       )}
       {selectedRefill === undefined || calendar === undefined ? null : (
@@ -662,7 +648,7 @@ export function CalendarPage({
           timezone={calendar.timezone}
         />
       )}
-      {editor === undefined || calendar === undefined || operatorToken === undefined ? null : (
+      {editor === undefined || calendar === undefined ? null : (
         <AppointmentEditor
           anchorDate={anchorDate}
           api={api}
@@ -672,7 +658,6 @@ export function CalendarPage({
             if (editor === "edit") setSelectedAppointment(undefined);
           }}
           onSuccess={onMutated}
-          token={operatorToken}
           {...(editor === "edit" && selectedAppointment !== undefined
             ? { appointment: selectedAppointment }
             : {})}

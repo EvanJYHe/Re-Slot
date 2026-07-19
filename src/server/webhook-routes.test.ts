@@ -23,8 +23,7 @@ const config: AppConfig = {
   publicBaseUrl: "http://localhost:3000",
   timezone: "America/Toronto",
   demoMode: true,
-  demoAdminPin: "4242",
-  adminSessionSecret: "test-session-secret-with-enough-length",
+  voiceActorSecret: voiceSecret,
   dataStore: "memory",
   mongoUri: undefined,
   mongoDatabase: "revive_test",
@@ -67,7 +66,7 @@ describe("provider webhook routes", () => {
       backboard,
       toolbox,
       transport,
-      linkSecret: config.adminSessionSecret,
+      linkSecret: telegramSecret,
       clock: () => now,
     });
     const elevenLabs = new ElevenLabsWebhookService({
@@ -96,7 +95,7 @@ describe("provider webhook routes", () => {
       message: {
         message_id: 1,
         chat: { id: 1001 },
-        text: `/start ${createTelegramLinkToken("josh", config.adminSessionSecret)}`,
+        text: `/start ${createTelegramLinkToken("josh", telegramSecret)}`,
       },
     };
     const denied = await app.inject({ method: "POST", url: "/webhooks/telegram", payload });

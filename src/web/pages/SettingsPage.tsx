@@ -5,7 +5,6 @@ import type { ChannelHealth, ReviveApi, SchedulingSettings } from "../types.js";
 
 interface SettingsPageProps {
   api: ReviveApi;
-  token: string;
   channelHealth: ChannelHealth | undefined;
   refreshKey: number;
   onReset: () => Promise<void>;
@@ -51,7 +50,7 @@ function ProviderStatus({ name, value }: { name: string; value: string | undefin
   );
 }
 
-export function SettingsPage({ api, token, channelHealth, refreshKey, onReset }: SettingsPageProps) {
+export function SettingsPage({ api, channelHealth, refreshKey, onReset }: SettingsPageProps) {
   const [settings, setSettings] = useState<SchedulingSettings>();
   const [status, setStatus] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -71,7 +70,7 @@ export function SettingsPage({ api, token, channelHealth, refreshKey, onReset }:
     setSaving(true);
     setStatus("Saving…");
     try {
-      setSettings(await api.patchSettings(patch, token));
+      setSettings(await api.patchSettings(patch));
       setStatus("Saved");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "That setting could not be saved.");
@@ -92,7 +91,7 @@ export function SettingsPage({ api, token, channelHealth, refreshKey, onReset }:
     setSaving(true);
     setStatus("Resetting…");
     try {
-      await api.resetDemo(token);
+      await api.resetDemo();
       await onReset();
       setSettings(await api.getSettings());
       setConfirmingReset(false);

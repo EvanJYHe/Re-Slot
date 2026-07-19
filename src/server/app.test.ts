@@ -15,8 +15,7 @@ const config: AppConfig = {
   publicBaseUrl: "http://localhost:3000",
   timezone: "America/Toronto",
   demoMode: true,
-  demoAdminPin: "4242",
-  adminSessionSecret: "test-session-secret-with-enough-length",
+  voiceActorSecret: "test-voice-actor-secret-with-enough-length",
   dataStore: "memory",
   mongoUri: undefined,
   mongoDatabase: "revive_test",
@@ -53,16 +52,6 @@ describe("REVIVE Fastify API", () => {
   afterEach(async () => {
     await app.close();
   });
-
-  async function operatorToken(): Promise<string> {
-    const login = await app.inject({
-      method: "POST",
-      url: "/api/v1/admin/session",
-      payload: { pin: "4242" },
-    });
-    expect(login.statusCode).toBe(200);
-    return login.json<{ token: string }>().token;
-  }
 
   it("returns health and explicit provider readiness without exposing secrets", async () => {
     const response = await app.inject({ method: "GET", url: "/health" });
@@ -107,11 +96,9 @@ describe("REVIVE Fastify API", () => {
   });
 
   it("validates and persists settings patches", async () => {
-    const token = await operatorToken();
     const response = await app.inject({
       method: "PATCH",
       url: "/api/v1/settings",
-      headers: { authorization: `Bearer ${token}` },
       payload: { moveLimit: 2, maxDiscountPercent: 10, allowAlternateBarbers: false },
     });
 
@@ -126,7 +113,6 @@ describe("REVIVE Fastify API", () => {
     const invalid = await app.inject({
       method: "PATCH",
       url: "/api/v1/settings",
-      headers: { authorization: `Bearer ${token}` },
       payload: { moveLimit: 9 },
     });
     expect(invalid.statusCode).toBe(400);
@@ -178,18 +164,7 @@ describe("REVIVE Fastify API", () => {
     expect(response.body).not.toContain("private-provider-message-id");
   });
 
-  it("authenticates demo reset and preserves provider-linked identities", async () => {
-    const denied = await app.inject({ method: "POST", url: "/api/v1/demo/reset" });
-    expect(denied.statusCode).toBe(401);
-
-    const login = await app.inject({
-      method: "POST",
-      url: "/api/v1/admin/session",
-      payload: { pin: "4242" },
-    });
-    expect(login.statusCode).toBe(200);
-    const token = login.json<{ token: string }>().token;
-
+  it("resets the local demo and preserves provider-linked identities", async () => {
     await store.transaction((state) => {
       state.customers.find((customer) => customer.id === "josh")!.telegramChatId = "updated-josh";
       state.customers.find((customer) => customer.id === "alex")!.telegramChatId = "updated-alex";
@@ -198,7 +173,6 @@ describe("REVIVE Fastify API", () => {
     const reset = await app.inject({
       method: "POST",
       url: "/api/v1/demo/reset",
-      headers: { authorization: `Bearer ${token}` },
     });
 
     expect(reset.statusCode).toBe(200);
@@ -240,11 +214,7 @@ describe("REVIVE Fastify API", () => {
     expect(tooLong.statusCode).toBe(400);
   });
 
-  it("protects operator reads and returns safe customer, waitlist, conversation, and activity models", async () => {
-    const denied = await app.inject({ method: "GET", url: "/api/v1/customers" });
-    expect(denied.statusCode).toBe(401);
-    const token = await operatorToken();
-    const authorization = { authorization: `Bearer ${token}` };
+  it("returns safe customer, waitlist, conversation, and activity models", async () => {
     await recordConversationEvent(store, {
       customerId: "alex",
       channel: "telegram",
@@ -258,17 +228,16 @@ describe("REVIVE Fastify API", () => {
       occurredAt: now,
     });
 
-    const customers = await app.inject({ method: "GET", url: "/api/v1/customers?q=alex", headers: authorization });
-    const detail = await app.inject({ method: "GET", url: "/api/v1/customers/alex", headers: authorization });
-    const waitlist = await app.inject({ method: "GET", url: "/api/v1/waitlist", headers: authorization });
-    const conversations = await app.inject({ method: "GET", url: "/api/v1/conversations", headers: authorization });
+    const customers = await app.inject({ method: "GET", url: "/api/v1/customers?q=alex" });
+    const detail = await app.inject({ method: "GET", url: "/api/v1/customers/alex" });
+    const waitlist = await app.inject({ method: "GET", url: "/api/v1/waitlist" });
+    const conversations = await app.inject({ method: "GET", url: "/api/v1/conversations" });
     const conversationId = conversations.json<Array<{ id: string }>>()[0]!.id;
     const conversation = await app.inject({
       method: "GET",
       url: `/api/v1/conversations/${conversationId}`,
-      headers: authorization,
     });
-    const activity = await app.inject({ method: "GET", url: "/api/v1/activity", headers: authorization });
+    const activity = await app.inject({ method: "GET", url: "/api/v1/activity" });
 
     for (const response of [customers, detail, waitlist, conversations, conversation, activity]) {
       expect(response.statusCode).toBe(200);
@@ -283,12 +252,9 @@ describe("REVIVE Fastify API", () => {
   });
 
   it("uses live availability and the deterministic engine for operator appointment mutations", async () => {
-    const token = await operatorToken();
-    const headers = { authorization: `Bearer ${token}` };
     const availability = await app.inject({
       method: "GET",
       url: "/api/v1/availability?date=2026-07-20&serviceId=haircut&barberId=jeremy",
-      headers,
     });
     expect(availability.statusCode).toBe(200);
     expect(availability.json()).toMatchObject({
@@ -301,7 +267,6 @@ describe("REVIVE Fastify API", () => {
     const booking = await app.inject({
       method: "POST",
       url: "/api/v1/appointments",
-      headers,
       payload: {
         customerId: "alex",
         barberId: "jeremy",
@@ -314,7 +279,6 @@ describe("REVIVE Fastify API", () => {
     const collision = await app.inject({
       method: "POST",
       url: "/api/v1/appointments",
-      headers,
       payload: {
         customerId: "nadia",
         barberId: "jeremy",
@@ -327,14 +291,12 @@ describe("REVIVE Fastify API", () => {
     const moved = await app.inject({
       method: "PATCH",
       url: `/api/v1/appointments/${appointmentId}`,
-      headers,
       payload: { barberId: "jeremy", startAt: "2026-07-20T19:00:00.000Z" },
     });
     expect(moved.statusCode).toBe(200);
     const cancelled = await app.inject({
       method: "POST",
       url: `/api/v1/appointments/${appointmentId}/cancel`,
-      headers,
     });
     expect(cancelled.statusCode).toBe(200);
     expect((await store.read()).appointments.find((item) => item.id === appointmentId)).toMatchObject({
@@ -344,12 +306,9 @@ describe("REVIVE Fastify API", () => {
   });
 
   it("updates customer preferences, notes, and waitlist state with SSE-visible events", async () => {
-    const token = await operatorToken();
-    const headers = { authorization: `Bearer ${token}` };
     const updated = await app.inject({
       method: "PATCH",
       url: "/api/v1/customers/sarah",
-      headers,
       payload: { flexibleBarberPreference: true, earlierMoveConsent: false },
     });
     expect(updated.statusCode).toBe(200);
@@ -359,7 +318,6 @@ describe("REVIVE Fastify API", () => {
     const note = await app.inject({
       method: "POST",
       url: "/api/v1/customers/sarah/notes",
-      headers,
       payload: { text: "  Please confirm major changes by phone.  " },
     });
     expect(note.statusCode).toBe(200);
@@ -367,7 +325,6 @@ describe("REVIVE Fastify API", () => {
     const waitlist = await app.inject({
       method: "PATCH",
       url: "/api/v1/waitlist/nadia-waitlist",
-      headers,
       payload: { status: "paused", operatorNote: "Hold until tomorrow." },
     });
     expect(waitlist.statusCode).toBe(200);

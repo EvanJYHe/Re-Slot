@@ -122,7 +122,6 @@ function api(): ReviveApi {
     getAvailability: vi.fn(async () => { throw new Error("unused"); }),
     getSettings: vi.fn(async () => settings),
     patchSettings: vi.fn(async (patch) => ({ ...settings, ...patch })),
-    createAdminSession: vi.fn(async () => ({ token: "operator-token" })),
     resetDemo: vi.fn(async () => ({ status: "reset", demoDate: "2026-07-20" })),
     getCustomers: vi.fn(async (query) => summaries.filter((summary) => summary.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))),
     getCustomer: vi.fn(async (id) => structuredClone(details.get(id)!)),
@@ -154,7 +153,7 @@ afterEach(cleanup);
 describe("CustomersPage", () => {
   it("searches customers and shows one masked operational record", async () => {
     const user = userEvent.setup();
-    render(<CustomersPage api={api()} refreshKey={0} token="operator-token" />);
+    render(<CustomersPage api={api()} refreshKey={0} />);
 
     expect(await screen.findByRole("heading", { name: "Customers" })).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /Sarah/ }));
@@ -179,7 +178,7 @@ describe("CustomersPage", () => {
   it("updates consent preferences and adds trimmed private notes", async () => {
     const user = userEvent.setup();
     const client = api();
-    render(<CustomersPage api={client} refreshKey={0} token="operator-token" />);
+    render(<CustomersPage api={client} refreshKey={0} />);
 
     await user.click(await screen.findByRole("button", { name: /Sarah/ }));
     await screen.findByRole("region", { name: "Sarah customer record" });
@@ -188,19 +187,16 @@ describe("CustomersPage", () => {
     await waitFor(() => expect(client.patchCustomer).toHaveBeenCalledWith(
       "sarah",
       { earlierMoveConsent: false },
-      "operator-token",
     ));
     await user.click(screen.getByRole("checkbox", { name: "Any qualified barber" }));
     await waitFor(() => expect(client.patchCustomer).toHaveBeenCalledWith(
       "sarah",
       { flexibleBarberPreference: true },
-      "operator-token",
     ));
     await user.click(screen.getByRole("checkbox", { name: "Past-customer outreach" }));
     await waitFor(() => expect(client.patchCustomer).toHaveBeenCalledWith(
       "sarah",
       { pastCustomerOptIn: false },
-      "operator-token",
     ));
 
     await user.type(screen.getByLabelText("New private note"), "  Ask about a beard trim next time.  ");
@@ -208,7 +204,6 @@ describe("CustomersPage", () => {
     await waitFor(() => expect(client.addCustomerNote).toHaveBeenCalledWith(
       "sarah",
       "Ask about a beard trim next time.",
-      "operator-token",
     ));
     expect(await screen.findByText("Ask about a beard trim next time.")).toBeInTheDocument();
     expect(client.getCustomer).toHaveBeenCalledTimes(6);

@@ -241,31 +241,28 @@ export interface ReviveApi {
     serviceId: string;
     barberId?: string;
     includeAlternates?: boolean;
-  }, token: string): Promise<AvailabilityResponse>;
+  }): Promise<AvailabilityResponse>;
   getSettings(): Promise<SchedulingSettings>;
-  patchSettings(patch: Partial<SchedulingSettings>, token?: string): Promise<SchedulingSettings>;
-  createAdminSession(pin: string): Promise<{ token: string }>;
-  resetDemo(token: string): Promise<{ status: string; demoDate: string }>;
-  getCustomers(query: string, token: string): Promise<CustomerSummary[]>;
-  getCustomer(id: string, token: string): Promise<CustomerDetail>;
-  patchCustomer(id: string, patch: Partial<CustomerDetail["preferences"]>, token: string): Promise<CustomerDetail>;
-  addCustomerNote(id: string, text: string, token: string): Promise<CustomerNote>;
-  getConversations(token: string): Promise<ConversationSummary[]>;
-  getConversation(id: string, token: string): Promise<ConversationDetail>;
-  getWaitlist(token: string): Promise<OperatorWaitlistEntry[]>;
+  patchSettings(patch: Partial<SchedulingSettings>): Promise<SchedulingSettings>;
+  resetDemo(): Promise<{ status: string; demoDate: string }>;
+  getCustomers(query: string): Promise<CustomerSummary[]>;
+  getCustomer(id: string): Promise<CustomerDetail>;
+  patchCustomer(id: string, patch: Partial<CustomerDetail["preferences"]>): Promise<CustomerDetail>;
+  addCustomerNote(id: string, text: string): Promise<CustomerNote>;
+  getConversations(): Promise<ConversationSummary[]>;
+  getConversation(id: string): Promise<ConversationDetail>;
+  getWaitlist(): Promise<OperatorWaitlistEntry[]>;
   patchWaitlist(
     id: string,
     patch: { status?: "active" | "paused" | "withdrawn"; operatorNote?: string | null },
-    token: string,
   ): Promise<OperatorWaitlistEntry>;
-  getActivity(token: string): Promise<ActivityItem[]>;
-  bookAppointment(input: AppointmentInput, token: string): Promise<OperationResult>;
+  getActivity(): Promise<ActivityItem[]>;
+  bookAppointment(input: AppointmentInput): Promise<OperationResult>;
   rescheduleAppointment(
     id: string,
     input: { barberId: string; startAt: string },
-    token: string,
   ): Promise<OperationResult>;
-  cancelAppointment(id: string, token: string): Promise<OperationResult>;
+  cancelAppointment(id: string): Promise<OperationResult>;
 }
 
 export interface EventSourceLike {

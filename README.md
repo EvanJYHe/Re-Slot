@@ -14,16 +14,15 @@ npm install
 npm run dev
 ```
 
-The calendar runs at `http://localhost:5173`; Fastify runs at `http://localhost:3000`. Vite proxies API, health, and webhook traffic to Fastify. `DATA_STORE=memory` is the quickest local path. Use `DATA_STORE=mongodb` only when `MONGODB_URI` points to a reachable replica set, because booking and offer acceptance use transactions.
+The hot-reload UI runs at `http://127.0.0.1:5174`; Fastify runs at `http://127.0.0.1:3100`. Vite proxies API, health, and webhook traffic to Fastify. `DATA_STORE=memory` is the quickest UI path. Use `DATA_STORE=mongodb` when `MONGODB_URI` points to the Atlas replica set, because booking and offer acceptance use transactions.
 
-Production uses one process:
+For the complete built demo in one process:
 
 ```bash
-npm run build
-NODE_ENV=production npm start
+npm run local
 ```
 
-Fastify serves the built React assets from `dist/public` and listens on `PORT`.
+Open `http://127.0.0.1:3100`. Fastify serves the built React assets and listens only on the loopback interface. The front-desk routes intentionally have no PIN or browser session because this is a trusted, local hackathon workspace.
 
 ## Front-desk workspace
 
@@ -32,13 +31,15 @@ The operator UI is a focused four-page workspace:
 - **Calendar** — Day, Week, and Month views, an All/Jeremy/Maya/Devon filter, live refill state, and engine-backed booking, rescheduling, and cancellation.
 - **Agent** — real Telegram and voice conversations, scheduling actions, waitlist supervision, and compact customer context. No provider activity is fabricated for the demo.
 - **Customers** — masked contact identities, scheduling preferences, appointments, waitlist entries, and private operator notes.
-- **Settings** — refill policies, connection health, and the authenticated demo reset.
+- **Settings** — refill policies, connection health, and a deliberately confirmed demo reset.
 
-Calendar viewing is public. Protected actions and the other three pages ask for `DEMO_ADMIN_PIN`; the resulting one-hour operator session is kept only in the browser's `sessionStorage`. Reset seeds a realistic Monday-to-Friday shop week while preserving linked demo identities and Sarah's configured phone number.
+Calendar, Agent, Customers, and Settings open directly on localhost. Reset seeds a realistic Monday-to-Friday shop week while preserving linked demo identities and Sarah's configured phone number. Telegram and ElevenLabs webhooks still require their provider secrets; removing the human operator gate does not weaken provider authentication.
 
 ## Provider setup
 
-Keep real credentials only in `.env` locally or sealed Railway variables. Never commit them.
+Keep real credentials only in the ignored local `.env`. Never commit them.
+
+Telegram and ElevenLabs cannot call a loopback address. For a live provider demo, expose port 3100 through a temporary HTTPS tunnel, set `PUBLIC_BASE_URL` to that tunnel URL, and remove the tunnel when the demo ends. The operator workspace itself remains local.
 
 ### Backboard
 
@@ -52,7 +53,7 @@ Copy the returned assistant ID into `BACKBOARD_ASSISTANT_ID`. Each customer rece
 
 ### Telegram
 
-After `PUBLIC_BASE_URL` is the deployed HTTPS URL:
+After `PUBLIC_BASE_URL` is the temporary HTTPS tunnel URL:
 
 ```bash
 npm run setup:telegram
@@ -72,26 +73,9 @@ Open the generated Josh link on Josh's Telegram account and the Alex link on Ale
 
 Inbound calls are resolved from the authenticated caller number. Tool requests carry a short-lived, signed actor token in a secret dynamic variable; model-supplied customer IDs are ignored. Decline, no-answer, and initiation failures safely advance the persisted refill job.
 
-## Railway and Atlas
+## Atlas
 
-`railway.json` pins Railpack, the build/start commands, one replica, restart-on-failure, and `/health`. Configure these production variables:
-
-- `NODE_ENV=production`, `DATA_STORE=mongodb`, `SHOP_TIMEZONE=America/Toronto`, and `DEMO_MODE=true`
-- `PUBLIC_BASE_URL`, `DEMO_ADMIN_PIN`, and a random `ADMIN_SESSION_SECRET`
-- `MONGODB_URI` and `MONGODB_DB=revive`
-- Telegram, Backboard, and ElevenLabs values from `.env.example`
-- `SARAH_PHONE` in E.164 format
-
-Atlas must allow Railway's outbound traffic. For a short hackathon, an Atlas network-access entry covering Railway's dynamic egress can be used with TLS and a least-privilege database user; a Railway static outbound IP is the tighter option. Remove temporary broad access after judging.
-
-Deploy from the repository root with an audit message, then wait for terminal `SUCCESS`:
-
-```bash
-railway up --service revive --environment production --detach -m "Deploy REVIVE scheduling operator"
-railway deployment list --service revive --environment production --json
-```
-
-Generate a Railway domain, set that HTTPS URL as `PUBLIC_BASE_URL`, then register Telegram and configure the ElevenLabs URLs.
+Atlas remains the external source of truth for the real demo. Set `DATA_STORE=mongodb`, `MONGODB_URI`, and `MONGODB_DB=revive` in `.env`. Allow the current development machine in Atlas Network Access, use TLS and a least-privilege database user, and remove temporary access after the hackathon. The local app falls back to memory only in development when Atlas is unavailable; production-shaped `npm run local` fails closed instead.
 
 ## API surface
 
@@ -110,7 +94,6 @@ Generate a Railway domain, set that HTTPS URL as `PUBLIC_BASE_URL`, then registe
 - `GET/PATCH /api/v1/settings`
 - `GET /api/v1/refill-jobs/:id`
 - `GET /api/v1/events`
-- `POST /api/v1/admin/session`
 - `POST /api/v1/demo/reset`
 - `POST /webhooks/telegram`
 - `POST /webhooks/elevenlabs/context`

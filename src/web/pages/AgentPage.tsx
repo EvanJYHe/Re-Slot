@@ -15,7 +15,6 @@ type AgentTab = "inbox" | "waitlist" | "activity";
 
 interface AgentPageProps {
   api: ReviveApi;
-  token: string;
   refreshKey: number;
 }
 
@@ -215,9 +214,8 @@ function Inbox({ conversations, selectedId, detail, loadingDetail, search, onSea
   );
 }
 
-function WaitlistPanel({ api, token, entries, onEntriesChange }: {
+function WaitlistPanel({ api, entries, onEntriesChange }: {
   api: ReviveApi;
-  token: string;
   entries: OperatorWaitlistEntry[];
   onEntriesChange: (entries: OperatorWaitlistEntry[]) => void;
 }) {
@@ -230,7 +228,7 @@ function WaitlistPanel({ api, token, entries, onEntriesChange }: {
   const update = async (entry: OperatorWaitlistEntry, patch: { status?: "active" | "paused" | "withdrawn"; operatorNote?: string | null }) => {
     setStatus("Saving…");
     try {
-      const updated = await api.patchWaitlist(entry.id, patch, token);
+      const updated = await api.patchWaitlist(entry.id, patch);
       onEntriesChange(entries.map((candidate) => candidate.id === entry.id ? updated : candidate));
       setStatus("Saved");
     } catch (error) {
@@ -354,7 +352,7 @@ function ActivityPanel({ activity }: { activity: ActivityItem[] }) {
   );
 }
 
-export function AgentPage({ api, token, refreshKey }: AgentPageProps) {
+export function AgentPage({ api, refreshKey }: AgentPageProps) {
   const [tab, setTab] = useState<AgentTab>("inbox");
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [waitlist, setWaitlist] = useState<OperatorWaitlistEntry[]>([]);
@@ -369,9 +367,9 @@ export function AgentPage({ api, token, refreshKey }: AgentPageProps) {
     let active = true;
     setLoading(true);
     void Promise.all([
-      api.getConversations(token),
-      api.getWaitlist(token),
-      api.getActivity(token),
+      api.getConversations(),
+      api.getWaitlist(),
+      api.getActivity(),
     ]).then(([nextConversations, nextWaitlist, nextActivity]) => {
       if (!active) return;
       setConversations(nextConversations);
@@ -387,19 +385,19 @@ export function AgentPage({ api, token, refreshKey }: AgentPageProps) {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [api, refreshKey, token]);
+  }, [api, refreshKey]);
 
   useEffect(() => {
     if (selectedId === undefined) return;
     let active = true;
     setLoadingDetail(true);
-    void api.getConversation(selectedId, token).then((nextDetail) => {
+    void api.getConversation(selectedId).then((nextDetail) => {
       if (active) setDetail(nextDetail);
     }).finally(() => {
       if (active) setLoadingDetail(false);
     });
     return () => { active = false; };
-  }, [api, selectedId, token, refreshKey]);
+  }, [api, selectedId, refreshKey]);
 
   return (
     <section>
@@ -432,7 +430,7 @@ export function AgentPage({ api, token, refreshKey }: AgentPageProps) {
             selectedId={selectedId}
           />
         ) : tab === "waitlist" ? (
-          <WaitlistPanel api={api} entries={waitlist} onEntriesChange={setWaitlist} token={token} />
+          <WaitlistPanel api={api} entries={waitlist} onEntriesChange={setWaitlist} />
         ) : (
           <ActivityPanel activity={activity} />
         )}
