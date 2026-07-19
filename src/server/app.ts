@@ -56,6 +56,7 @@ const calendarQuerySchema = z.object({
   }
 });
 
+
 const availabilityQuerySchema = z.object({
   date: isoDateSchema,
   serviceId: z.string().min(1),
@@ -120,6 +121,7 @@ function providerReadiness(config: AppConfig, storeKind: "memory" | "mongodb") {
       && config.elevenLabsAgentId !== undefined
       && config.elevenLabsPhoneNumberId !== undefined
       && config.elevenLabsWebhookSecret !== undefined
+      && config.sarahPhone !== undefined
       ? "configured"
       : "unconfigured",
   } as const;

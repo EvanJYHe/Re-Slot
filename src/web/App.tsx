@@ -45,6 +45,9 @@ export function DashboardApp({
   eventSourceFactory = defaultEventSourceFactory,
 }: DashboardAppProps) {
   const [page, setPage] = useState<AppPage>("calendar");
+  const [visitedPages, setVisitedPages] = useState<ReadonlySet<AppPage>>(
+    () => new Set<AppPage>(["calendar"]),
+  );
   const [anchorDate, setAnchorDate] = useState(initialDate);
   const [calendarView, setCalendarView] = useState<CalendarView>("day");
   const [barberFilter, setBarberFilter] = useState("all");
@@ -55,6 +58,13 @@ export function DashboardApp({
   const [domainVersion, setDomainVersion] = useState(0);
   const requestSequence = useRef(0);
   const range = useMemo(() => periodRange(anchorDate, calendarView), [anchorDate, calendarView]);
+
+  const navigateTo = (destination: AppPage) => {
+    setVisitedPages((current) => current.has(destination)
+      ? current
+      : new Set([...current, destination]));
+    setPage(destination);
+  };
 
   const refreshCalendar = useCallback(async () => {
     const requestId = ++requestSequence.current;
@@ -117,7 +127,7 @@ export function DashboardApp({
                   page === destination.id ? "bg-[#edf1ed] text-ink" : "text-muted hover:bg-[#f2f4f1] hover:text-ink",
                 )}
                 key={destination.id}
-                onClick={() => setPage(destination.id)}
+                onClick={() => navigateTo(destination.id)}
                 type="button"
               >
                 <Icon className="h-4 w-4" />
@@ -135,7 +145,7 @@ export function DashboardApp({
         <div className="border-b border-[#ead9b9] bg-amber-soft px-6 py-2.5 text-center text-sm text-[#7c5b22]">{error}</div>
       )}
       <main>
-        {page === "calendar" ? (
+        <div hidden={page !== "calendar"}>
           <CalendarPage
             anchorDate={anchorDate}
             api={api}
@@ -148,23 +158,29 @@ export function DashboardApp({
             onViewChange={setCalendarView}
             view={calendarView}
           />
+        </div>
+        {visitedPages.has("agent") ? (
+          <div hidden={page !== "agent"}>
+            <AgentPage api={api} refreshKey={domainVersion} />
+          </div>
         ) : null}
-        {page === "agent" ? (
-          <AgentPage api={api} refreshKey={domainVersion} />
+        {visitedPages.has("customers") ? (
+          <div hidden={page !== "customers"}>
+            <CustomersPage api={api} refreshKey={domainVersion} />
+          </div>
         ) : null}
-        {page === "customers" ? (
-          <CustomersPage api={api} refreshKey={domainVersion} />
-        ) : null}
-        {page === "settings" ? (
-          <SettingsPage
-            api={api}
-            channelHealth={calendar?.channelHealth}
-            onReset={async () => {
-              setDomainVersion((version) => version + 1);
-              await refreshCalendar();
-            }}
-            refreshKey={domainVersion}
-          />
+        {visitedPages.has("settings") ? (
+          <div hidden={page !== "settings"}>
+            <SettingsPage
+              api={api}
+              channelHealth={calendar?.channelHealth}
+              onReset={async () => {
+                setDomainVersion((version) => version + 1);
+                await refreshCalendar();
+              }}
+              refreshKey={domainVersion}
+            />
+          </div>
         ) : null}
       </main>
     </div>

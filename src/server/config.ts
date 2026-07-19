@@ -5,6 +5,10 @@ import { z } from "zod";
 const emptyToUndefined = (value: unknown): unknown => value === "" ? undefined : value;
 const optionalString = z.preprocess(emptyToUndefined, z.string().min(1).optional());
 const optionalUrl = z.preprocess(emptyToUndefined, z.url().optional());
+const optionalE164Phone = z.preprocess(
+  emptyToUndefined,
+  z.string().regex(/^\+[1-9]\d{7,14}$/, "Expected an E.164 phone number.").optional(),
+);
 const booleanString = z.preprocess((value) => {
   if (typeof value === "boolean") return value;
   if (typeof value !== "string") return value;
@@ -28,7 +32,7 @@ const environmentSchema = z.object({
   ELEVENLABS_AGENT_ID: optionalString,
   ELEVENLABS_PHONE_NUMBER_ID: optionalString,
   ELEVENLABS_WEBHOOK_SECRET: optionalString,
-  SARAH_PHONE: optionalString,
+  SARAH_PHONE: optionalE164Phone,
 });
 
 export interface AppConfig {
