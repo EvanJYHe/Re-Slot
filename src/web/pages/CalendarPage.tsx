@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 
 import { ReviveApiError } from "../api.js";
 import { MiniMonth } from "../components/MiniMonth.js";
+import { EditIcon, TrashIcon, XIcon } from "../components/icons.js";
 import { Button, Drawer, IconButton, Modal, SegmentedControl, StatusDot, cn } from "../components/ui.js";
 import { movePeriod, periodLabel, periodRange, type CalendarView } from "../lib/dates.js";
 import type {
@@ -79,7 +80,7 @@ function HourLines({ startHour, endHour }: { startHour: number; endHour: number 
 function AppointmentCard({ appointment, timezone, onOpen, compact = false, style }: {
   appointment: CalendarAppointment;
   timezone: string;
-  onOpen: () => void;
+  onOpen: (rect: DOMRect) => void;
   compact?: boolean;
   style: CSSProperties;
 }) {
@@ -101,7 +102,7 @@ function AppointmentCard({ appointment, timezone, onOpen, compact = false, style
       )}
       data-density={density}
       data-visual="solid"
-      onClick={onOpen}
+      onClick={(event) => onOpen(event.currentTarget.getBoundingClientRect())}
       style={style}
       type="button"
     >
@@ -165,7 +166,7 @@ function DayCalendar({ calendar, date, barberFilter, onAppointment, onRefill }: 
   calendar: CalendarResponse;
   date: string;
   barberFilter: string;
-  onAppointment: (appointment: CalendarAppointment) => void;
+  onAppointment: (appointment: CalendarAppointment, rect: DOMRect) => void;
   onRefill: (refill: ActiveRefill) => void;
 }) {
   const startHour = timelineStartHour;
@@ -220,7 +221,7 @@ function DayCalendar({ calendar, date, barberFilter, onAppointment, onRefill }: 
                   <AppointmentCard
                     appointment={appointment}
                     key={appointment.id}
-                    onOpen={() => onAppointment(appointment)}
+                    onOpen={(rect) => onAppointment(appointment, rect)}
                     style={{
                       ...cardStyle(appointment.startAt, appointment.endAt, calendar.timezone, startHour * 60),
                       left: `${2 + index * width}%`,
@@ -261,7 +262,7 @@ function WeekCalendar({ calendar, dates, barberFilter, onAppointment, onRefill }
   calendar: CalendarResponse;
   dates: string[];
   barberFilter: string;
-  onAppointment: (appointment: CalendarAppointment) => void;
+  onAppointment: (appointment: CalendarAppointment, rect: DOMRect) => void;
   onRefill: (refill: ActiveRefill) => void;
 }) {
   const startHour = timelineStartHour;
@@ -312,7 +313,7 @@ function WeekCalendar({ calendar, dates, barberFilter, onAppointment, onRefill }
                       appointment={appointment}
                       compact
                       key={appointment.id}
-                      onOpen={() => onAppointment(appointment)}
+                      onOpen={(rect) => onAppointment(appointment, rect)}
                       style={{
                         ...cardStyle(appointment.startAt, appointment.endAt, calendar.timezone, startHour * 60),
                         left: `${3 + index * width}%`,
@@ -426,9 +427,36 @@ function RefillDrawer({ refill, timezone, onClose }: {
   );
 }
 
-function AppointmentDrawer({ appointment, timezone, api, onClose, onEdit, onMutated }: {
+const POPOVER_WIDTH = 320;
+
+function popoverPosition(rect: DOMRect): CSSProperties {
+  const gap = 10;
+  const margin = 8;
+  const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  // Prefer placing the card to the left of the event (Google Calendar style).
+  let left = rect.left - POPOVER_WIDTH - gap;
+  if (left < margin) {
+    left = rect.right + gap;
+    if (left + POPOVER_WIDTH > vw - margin) left = Math.max(margin, vw - POPOVER_WIDTH - margin);
+  }
+  const estimatedHeight = 240;
+  let top = rect.top;
+  if (top + estimatedHeight > vh - margin) top = vh - estimatedHeight - margin;
+  if (top < margin) top = margin;
+  return { left, top, width: POPOVER_WIDTH };
+}
+
+function barberTone(barberId: string): string {
+  if (barberId === "maya") return "#356d9a";
+  if (barberId === "devon") return "#765697";
+  return "#177a55";
+}
+
+function AppointmentPopover({ appointment, timezone, anchorRect, api, onClose, onEdit, onMutated }: {
   appointment: CalendarAppointment;
   timezone: string;
+  anchorRect: DOMRect;
   api: ReviveApi;
   onClose: () => void;
   onEdit: () => void;
@@ -436,6 +464,14 @@ function AppointmentDrawer({ appointment, timezone, api, onClose, onEdit, onMuta
 }) {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [status, setStatus] = useState<string>();
+  const style = useMemo(() => popoverPosition(anchorRect), [anchorRect]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const cancel = async () => {
     setStatus("Cancelling…");
     try {
@@ -446,26 +482,49 @@ function AppointmentDrawer({ appointment, timezone, api, onClose, onEdit, onMuta
       setStatus(error instanceof Error ? error.message : "The appointment could not be cancelled.");
     }
   };
+
+  const longDate = DateTime.fromISO(appointment.startAt).setZone(timezone).toFormat("cccc, LLLL d");
   return (
-    <Drawer onClose={onClose} title="Appointment details">
-      <div className="border-b border-line pb-5">
-        <span className="font-mono text-[11px] text-muted">{timeLabel(appointment.startAt, timezone)}–{timeLabel(appointment.endAt, timezone)}</span>
-        <h3 className="mt-2 text-xl font-semibold tracking-[-0.02em]">{appointment.customerName}</h3>
-        <p className="mt-1 text-sm text-muted">{appointment.serviceName}</p>
+    <div
+      className="fixed inset-0 z-40"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      role="presentation"
+    >
+      <div
+        aria-label="Appointment details"
+        aria-modal="true"
+        className="event-popover fixed rounded-xl border border-line bg-panel p-4 shadow-[0_12px_44px_-12px_rgba(20,30,25,0.4)]"
+        role="dialog"
+        style={style}
+      >
+        <div className="-mr-1 -mt-1 flex items-center justify-end gap-0.5">
+          <IconButton aria-label="Reschedule appointment" onClick={onEdit} title="Reschedule"><EditIcon /></IconButton>
+          {confirmingCancel ? (
+            <IconButton aria-label="Confirm cancellation" className="text-[#9e3f3f] hover:bg-[#fbeeee]" onClick={() => void cancel()} title="Confirm cancellation"><TrashIcon /></IconButton>
+          ) : (
+            <IconButton aria-label="Cancel appointment" onClick={() => setConfirmingCancel(true)} title="Cancel appointment"><TrashIcon /></IconButton>
+          )}
+          <IconButton aria-label="Close Appointment details" onClick={onClose}><XIcon /></IconButton>
+        </div>
+        <div className="mt-0.5 flex gap-3">
+          <span className="mt-1.5 h-3.5 w-3.5 shrink-0 rounded-[4px]" style={{ backgroundColor: barberTone(appointment.barberId) }} />
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold leading-6 tracking-[-0.01em]">{appointment.customerName}</h3>
+            <p className="text-sm text-muted">{appointment.serviceName}</p>
+            <p className="mt-2 text-sm text-ink">{longDate} · {timeLabel(appointment.startAt, timezone)}–{timeLabel(appointment.endAt, timezone)}</p>
+            <dl className="mt-3 space-y-1.5 text-sm">
+              <div className="flex gap-3"><dt className="w-16 shrink-0 text-muted">Barber</dt><dd className="font-medium">{appointment.barberName}</dd></div>
+              <div className="flex gap-3"><dt className="w-16 shrink-0 text-muted">Status</dt><dd className="font-medium capitalize">{appointment.status}</dd></div>
+              {appointment.discountPercent > 0 ? (
+                <div className="flex gap-3"><dt className="w-16 shrink-0 text-muted">Discount</dt><dd className="font-medium">{appointment.discountPercent}%</dd></div>
+              ) : null}
+            </dl>
+            {confirmingCancel ? <p className="mt-3 text-xs text-[#9e3f3f]">Tap the trash icon again to confirm.</p> : null}
+            {status === undefined ? null : <p className="mt-2 text-xs text-muted">{status}</p>}
+          </div>
+        </div>
       </div>
-      <dl className="grid grid-cols-[110px_1fr] gap-y-4 py-5 text-sm">
-        <dt className="text-muted">Barber</dt><dd className="font-medium">{appointment.barberName}</dd>
-        <dt className="text-muted">Status</dt><dd className="font-medium capitalize">{appointment.status}</dd>
-        <dt className="text-muted">Discount</dt><dd className="font-medium">{appointment.discountPercent}%</dd>
-      </dl>
-      {status === undefined ? null : <p className="mb-3 text-sm text-muted">{status}</p>}
-      <div className="flex gap-2 border-t border-line pt-5">
-        <Button onClick={onEdit}>Reschedule</Button>
-        {confirmingCancel
-          ? <Button onClick={() => void cancel()} variant="danger">Confirm cancellation</Button>
-          : <Button onClick={() => setConfirmingCancel(true)} variant="ghost">Cancel appointment</Button>}
-      </div>
-    </Drawer>
+    </div>
   );
 }
 
@@ -486,7 +545,7 @@ function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, on
     : localDate(appointment.startAt, calendar.timezone));
   const [slots, setSlots] = useState<Array<{ startAt: string; localTime: string }>>([]);
   const [startAt, setStartAt] = useState("");
-  const [status, setStatus] = useState("Loading customers…");
+  const [status, setStatus] = useState("");
   const editing = appointment !== undefined;
 
   useEffect(() => {
@@ -506,7 +565,6 @@ function AppointmentEditor({ api, calendar, anchorDate, appointment, onClose, on
     if (serviceId === "" || barberId === "" || date === "") return;
     let active = true;
     setStartAt("");
-    setStatus("Checking live availability…");
     void api.getAvailability({ date, serviceId, barberId }).then((result) => {
       if (!active) return;
       setSlots(result.slots);
@@ -607,10 +665,15 @@ export function CalendarPage({
   onMutated,
 }: CalendarPageProps) {
   const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment>();
+  const [anchorRect, setAnchorRect] = useState<DOMRect>();
   const [selectedRefill, setSelectedRefill] = useState<ActiveRefill>();
   const [editor, setEditor] = useState<"new" | "edit">();
   const range = useMemo(() => periodRange(anchorDate, view), [anchorDate, view]);
 
+  const openAppointment = (appointment: CalendarAppointment, rect: DOMRect) => {
+    setSelectedAppointment(appointment);
+    setAnchorRect(rect);
+  };
   const openEditor = () => setEditor("new");
   const selectMonthDate = (date: string) => {
     onAnchorDateChange(date);
@@ -682,7 +745,7 @@ export function CalendarPage({
             barberFilter={barberFilter}
             calendar={calendar}
             date={anchorDate}
-            onAppointment={setSelectedAppointment}
+            onAppointment={openAppointment}
             onRefill={setSelectedRefill}
           />
         ) : view === "week" ? (
@@ -690,7 +753,7 @@ export function CalendarPage({
             barberFilter={barberFilter}
             calendar={calendar}
             dates={range.visibleDates}
-            onAppointment={setSelectedAppointment}
+            onAppointment={openAppointment}
             onRefill={setSelectedRefill}
           />
         ) : (
@@ -704,8 +767,9 @@ export function CalendarPage({
           )}
         </div>
       </div>
-      {selectedAppointment === undefined || editor === "edit" || calendar === undefined ? null : (
-        <AppointmentDrawer
+      {selectedAppointment === undefined || anchorRect === undefined || editor === "edit" || calendar === undefined ? null : (
+        <AppointmentPopover
+          anchorRect={anchorRect}
           api={api}
           appointment={selectedAppointment}
           onClose={() => setSelectedAppointment(undefined)}
