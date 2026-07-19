@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { DateTime } from "luxon";
+import { Agent } from "undici";
 import { z } from "zod";
 
 import type { ReviveStore } from "../../domain/store.js";
@@ -26,13 +27,35 @@ export interface TelegramTransport {
 interface TelegramApiClientOptions {
   botToken: string;
   fetchImpl?: typeof fetch;
+  apiIp?: string;
 }
 
 export class TelegramApiClient implements TelegramTransport {
   private readonly fetchImpl: typeof fetch;
+  private readonly dispatcher: Agent | undefined;
 
   constructor(private readonly options: TelegramApiClientOptions) {
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.dispatcher = options.fetchImpl === undefined && options.apiIp !== undefined
+      ? new Agent({
+          connect: {
+            lookup: (_hostname, lookupOptions, callback) => {
+              if (lookupOptions.all) {
+                callback(null, [{ address: options.apiIp!, family: 4 }]);
+                return;
+              }
+              callback(null, options.apiIp!, 4);
+            },
+          },
+        })
+      : undefined;
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, {
+      ...init,
+      ...(this.dispatcher === undefined ? {} : { dispatcher: this.dispatcher }),
+    } as RequestInit));
+  }
+
+  async close(): Promise<void> {
+    await this.dispatcher?.close();
   }
 
   async sendMessage(chatId: string, text: string): Promise<{ providerMessageId: string }> {
@@ -71,6 +94,65 @@ export class TelegramApiClient implements TelegramTransport {
       },
     );
     if (!response.ok) throw new Error("Telegram webhook registration failed.");
+  }
+
+  async deleteWebhook(dropPendingUpdates = false): Promise<void> {
+    let response: Response;
+    try {
+      response = await this.fetchImpl(
+        `https://api.telegram.org/bot${this.options.botToken}/deleteWebhook`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ drop_pending_updates: dropPendingUpdates }),
+          signal: AbortSignal.timeout(12_000),
+        },
+      );
+    } catch {
+      throw new Error("Telegram webhook removal failed.");
+    }
+    const payload = z.object({ ok: z.boolean() }).passthrough()
+      .safeParse(await response.json().catch(() => ({})));
+    if (!response.ok || !payload.success || !payload.data.ok) {
+      throw new Error("Telegram webhook removal failed.");
+    }
+  }
+
+  async getUpdates(
+    offset: number | undefined,
+    timeoutSeconds: number,
+    signal: AbortSignal,
+  ): Promise<TelegramUpdate[]> {
+    let response: Response;
+    try {
+      response = await this.fetchImpl(
+        `https://api.telegram.org/bot${this.options.botToken}/getUpdates`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(offset === undefined ? {} : { offset }),
+            timeout: timeoutSeconds,
+            allowed_updates: ["message"],
+          }),
+          signal: AbortSignal.any([
+            signal,
+            AbortSignal.timeout((timeoutSeconds + 5) * 1_000),
+          ]),
+        },
+      );
+    } catch (error) {
+      if (signal.aborted) throw error;
+      throw new Error("Telegram polling failed.");
+    }
+    const payload = z.object({
+      ok: z.boolean(),
+      result: z.array(telegramUpdateSchema).optional(),
+    }).passthrough().safeParse(await response.json().catch(() => ({})));
+    if (!response.ok || !payload.success || !payload.data.ok || payload.data.result === undefined) {
+      throw new Error("Telegram polling failed.");
+    }
+    return payload.data.result;
   }
 }
 

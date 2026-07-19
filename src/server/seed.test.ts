@@ -10,7 +10,7 @@ describe("demo seed", () => {
     expect(getDemoDate("2026-07-18T12:00:00.000-04:00", "America/Toronto")).toBe("2026-07-20");
   });
 
-  it("creates the Josh, Sarah, and Alex golden path with 7 PM open", () => {
+  it("creates the Josh, Sarah, and Alex golden path within weekday shop hours", () => {
     const state = createDemoState({
       now: "2026-07-18T16:00:00.000Z",
       timezone: "America/Toronto",
@@ -21,17 +21,17 @@ describe("demo seed", () => {
     }).toUTC().toISO();
 
     expect(state.appointments).toEqual(expect.arrayContaining([
-      expect.objectContaining({ customerId: "josh", barberId: "jeremy", startAt: at(17) }),
-      expect.objectContaining({ customerId: "sarah", barberId: "jeremy", startAt: at(18) }),
+      expect.objectContaining({ customerId: "josh", barberId: "jeremy", startAt: at(13) }),
+      expect.objectContaining({ customerId: "sarah", barberId: "jeremy", startAt: at(14) }),
     ]));
     expect(state.appointments).not.toContainEqual(
-      expect.objectContaining({ barberId: "jeremy", startAt: at(19), status: "confirmed" }),
+      expect.objectContaining({ barberId: "jeremy", startAt: at(17), status: "confirmed" }),
     );
     expect(state.waitlist).toContainEqual(expect.objectContaining({
       customerId: "alex",
       barberId: "jeremy",
-      earliestStart: "17:00",
-      latestStart: "19:00",
+      earliestStart: "14:00",
+      latestStart: "16:00",
       status: "active",
     }));
     expect(state.customers.find((customer) => customer.id === "sarah")).toMatchObject({

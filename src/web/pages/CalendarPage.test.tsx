@@ -354,4 +354,28 @@ describe("CalendarPage", () => {
     expect(await within(dialog).findByText("That time was just taken.")).toBeInTheDocument();
     expect(dialog).toBeInTheDocument();
   });
+
+  it("shows the shop hours when a weekend date is selected", async () => {
+    const user = userEvent.setup();
+    const client = api();
+    client.getAvailability = vi.fn(async ({ date }) => ({
+      date,
+      timezone: "America/Toronto",
+      service: { id: "haircut", name: "Signature haircut", durationMinutes: 60 },
+      slots: [],
+      closed: true,
+      message: "We're closed at that time. We're open Monday through Friday from 9:00 AM to 5:00 PM.",
+    }));
+    render(<Harness client={client} />);
+
+    await user.click(screen.getByRole("button", { name: "New appointment" }));
+    const dialog = screen.getByRole("dialog", { name: "New appointment" });
+    await user.clear(within(dialog).getByLabelText("Date"));
+    await user.type(within(dialog).getByLabelText("Date"), "2026-07-25");
+
+    expect(await within(dialog).findByText(
+      "We're closed at that time. We're open Monday through Friday from 9:00 AM to 5:00 PM.",
+    )).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Confirm appointment" })).toBeDisabled();
+  });
 });

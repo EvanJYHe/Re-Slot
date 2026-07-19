@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { DateTime, Interval } from "luxon";
 
+import { SHOP_CLOSED_MESSAGE } from "./shop-hours.js";
 import type { ReviveState, ReviveStore } from "./store.js";
 import type {
   ActorContext,
@@ -166,7 +167,7 @@ export class ReviveEngine {
     }
     const endAt = appointmentEnd(input.startAt, service);
     if (endAt === undefined || !isWithinWorkingHours(state, input.barberId, input.serviceId, input.startAt, endAt)) {
-      return resultError("INVALID_REQUEST", "That time is outside the barber's available hours.");
+      return resultError("INVALID_REQUEST", SHOP_CLOSED_MESSAGE);
     }
     if (!slotIsOpen(state, input.barberId, input.startAt, endAt)) {
       return { type: "conflict", code: "STALE_SLOT", message: "That time was just taken. Please choose another opening." };
@@ -281,7 +282,7 @@ export class ReviveEngine {
     if (service === undefined) return resultError("NOT_FOUND", "That service could not be found.");
     const endAt = appointmentEnd(input.startAt, service);
     if (endAt === undefined || !isWithinWorkingHours(state, input.barberId, appointment.serviceId, input.startAt, endAt)) {
-      return resultError("INVALID_REQUEST", "That time is outside the barber's available hours.");
+      return resultError("INVALID_REQUEST", SHOP_CLOSED_MESSAGE);
     }
     if (!slotIsOpen(state, input.barberId, input.startAt, endAt, appointment.id)) {
       return { type: "conflict", code: "STALE_SLOT", message: "That time was just taken. Please choose another opening." };

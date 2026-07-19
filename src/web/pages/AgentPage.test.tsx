@@ -87,14 +87,24 @@ const detail: ConversationDetail = {
       occurredAt: "2026-07-20T22:02:00.000Z",
     },
   ],
-  activity: [{
-    id: "activity-1",
-    type: "offer.delivered",
-    occurredAt: "2026-07-20T22:00:00.000Z",
-    message: "REVIVE delivered an appointment offer to Alex via Telegram.",
-    customerId: "alex",
-    customerName: "Alex",
-  }],
+  activity: [
+    {
+      id: "activity-cancelled",
+      type: "appointment.cancelled",
+      occurredAt: "2026-07-20T21:58:00.000Z",
+      message: "Alex's appointment was cancelled; REVIVE opened refill work.",
+      customerId: "alex",
+      customerName: "Alex",
+    },
+    {
+      id: "activity-1",
+      type: "offer.delivered",
+      occurredAt: "2026-07-20T22:00:00.000Z",
+      message: "REVIVE delivered an appointment offer to Alex via Telegram.",
+      customerId: "alex",
+      customerName: "Alex",
+    },
+  ],
   context: {
     customer: {
       id: "alex",
@@ -122,6 +132,40 @@ const detail: ConversationDetail = {
       author: "operator",
       createdAt: "2026-07-18T16:00:00.000Z",
     },
+  },
+};
+
+const voiceDetail: ConversationDetail = {
+  conversation: conversations[1]!,
+  events: [
+    {
+      id: "voice-1",
+      kind: "transcript",
+      direction: "outbound",
+      speaker: "agent",
+      text: "Hi Sarah, an earlier appointment opened up.",
+      occurredAt: "2026-07-20T21:01:00.000Z",
+      metadata: { timeInCallSeconds: 0 },
+    },
+    {
+      id: "voice-2",
+      kind: "transcript",
+      direction: "inbound",
+      speaker: "customer",
+      text: "Yes, move me to five.",
+      occurredAt: "2026-07-20T21:02:00.000Z",
+      metadata: { timeInCallSeconds: 4 },
+    },
+  ],
+  activity: [],
+  context: {
+    customer: {
+      id: "sarah",
+      name: "Sarah",
+      contactPreference: "voice",
+      identitySummary: "••• ••• 0101",
+    },
+    automation: { state: "Monitoring" },
   },
 };
 
@@ -165,7 +209,7 @@ function api(overrides: Partial<ReviveApi> = {}): ReviveApi {
     addCustomerNote: vi.fn(async () => { throw new Error("unused"); }),
     createCustomer: vi.fn(async () => ({ id: "new-customer", name: "New Customer", contactPreference: "telegram" as const, identitySummary: "No linked channel", activeWaitlistCount: 0, bookingState: "not_eligible" as const, bookingStateLabel: "Not eligible", visitCount: 0, outreachEligible: false, matchReason: "New customer." })),
     getConversations: vi.fn(async () => conversations),
-    getConversation: vi.fn(async () => detail),
+    getConversation: vi.fn(async (id) => id === "conversation-sarah" ? voiceDetail : detail),
     getWaitlist: vi.fn(async () => waitlist),
     patchWaitlist: vi.fn(async (id, patch) => ({ ...waitlist[0]!, id, ...patch } as OperatorWaitlistEntry)),
     getActivity: vi.fn(async () => activity),
@@ -186,7 +230,7 @@ describe("AgentPage", () => {
     expect(screen.getByRole("heading", { name: "Conversation" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Context" })).toBeInTheDocument();
     expect(screen.getByText("Telegram · Outbound")).toBeInTheDocument();
-    expect(screen.getByText("Voice · Outbound")).toBeInTheDocument();
+    expect(screen.getByText("Phone call · Outbound")).toBeInTheDocument();
 
     expect(await screen.findByText("A 6 PM chair opened with Jeremy.")).toBeInTheDocument();
     const question = screen.getByText("Is the haircut still forty-five dollars?");
@@ -199,11 +243,29 @@ describe("AgentPage", () => {
 
     const context = screen.getByRole("complementary", { name: "Context" });
     expect(context).toHaveClass("lg:col-start-2", "xl:col-start-auto");
-    for (const label of ["Customer", "Appointment", "Automation", "Private note"]) {
+    for (const label of ["Customer", "Appointment", "Automation", "Appointment activity", "Private note"]) {
       expect(within(context).getByRole("heading", { name: label })).toBeInTheDocument();
     }
     expect(within(context).getByText("Waiting for Alex")).toBeInTheDocument();
+    expect(within(context).getByText("Alex's appointment was cancelled; REVIVE opened refill work.")).toBeInTheDocument();
     expect(within(context).getByText("Usually available after work.")).toBeInTheDocument();
+  });
+
+  it("filters Telegram and phone conversations and renders persisted call transcripts", async () => {
+    const user = userEvent.setup();
+    render(<AgentPage api={api()} refreshKey={0} />);
+
+    await screen.findByRole("heading", { name: "Conversations" });
+    await user.click(screen.getByRole("button", { name: "Calls 1" }));
+    expect(screen.getAllByText("Sarah").length).toBeGreaterThan(0);
+    expect(await screen.findByText("Hi Sarah, an earlier appointment opened up.")).toBeInTheDocument();
+    expect(screen.getAllByText("Yes, move me to five.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/call transcript/i)).toHaveLength(2);
+    expect(screen.getByText("call 0:04")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Telegram 1" }));
+    expect(screen.getAllByText("Alex").length).toBeGreaterThan(0);
+    expect(await screen.findByText("A 6 PM chair opened with Jeremy.")).toBeInTheDocument();
   });
 
   it("shows an honest empty state when no provider interactions exist", async () => {

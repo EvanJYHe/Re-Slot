@@ -11,6 +11,25 @@ describe("loadConfig", () => {
     expect(config.publicBaseUrl).toBe("http://127.0.0.1:3100");
     expect(config.timezone).toBe("America/Toronto");
     expect(config.demoMode).toBe(true);
+    expect(config.telegramLocalPolling).toBe(false);
+    expect(config.telegramApiIp).toBeUndefined();
+    expect(config.backboardApiIp).toBeUndefined();
+  });
+
+  it("enables explicit local Telegram polling", () => {
+    expect(loadConfig({ TELEGRAM_LOCAL_POLLING: "true" }).telegramLocalPolling).toBe(true);
+  });
+
+  it("accepts an optional Telegram API IP override", () => {
+    expect(loadConfig({ TELEGRAM_API_IP: "149.154.166.110" }).telegramApiIp)
+      .toBe("149.154.166.110");
+    expect(() => loadConfig({ TELEGRAM_API_IP: "not-an-ip" })).toThrow();
+  });
+
+  it("accepts an optional Backboard API IP override", () => {
+    expect(loadConfig({ BACKBOARD_API_IP: "15.222.100.239" }).backboardApiIp)
+      .toBe("15.222.100.239");
+    expect(() => loadConfig({ BACKBOARD_API_IP: "not-an-ip" })).toThrow();
   });
 
   it("rejects an unknown persistence mode", () => {
