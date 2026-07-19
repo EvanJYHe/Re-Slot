@@ -4,25 +4,70 @@ REVIVE is a deterministic scheduling and cancellation-refill operator for a Toro
 
 The demo path is deliberately concrete: Josh cancels a 5 PM haircut, Sarah accepts 5 PM by voice and frees 6 PM, then Alex accepts 6 PM through Telegram. The live calendar updates from authoritative state over SSE.
 
-## Local development
+## Quick start for teammates
 
-Requirements: Node.js 22+, npm, and optionally MongoDB Atlas.
+Requirements: Node.js 22+ and npm. MongoDB Atlas and provider credentials are optional for normal UI/domain development.
 
 ```bash
-cp .env.example .env
+git clone https://github.com/ManagementMO/REVIVE.git
+cd REVIVE
+git switch --track origin/agent/revive-local-only
 npm install
+cp .env.example .env
 npm run dev
 ```
 
-The hot-reload UI runs at `http://127.0.0.1:5174`; Fastify runs at `http://127.0.0.1:3100`. Vite proxies API, health, and webhook traffic to Fastify. `DATA_STORE=memory` is the quickest UI path. Use `DATA_STORE=mongodb` when `MONGODB_URI` points to the Atlas replica set, because booking and offer acceptance use transactions.
+Open `http://127.0.0.1:5174`. The default `.env.example` uses seeded in-memory data, so teammates can build the calendar, agent workspace, CRM, and scheduling engine without shared credentials. Fastify runs at `http://127.0.0.1:3100`, and Vite proxies API, health, and webhook traffic to it.
 
-For the complete built demo in one process:
+For the production-shaped local demo in one process:
 
 ```bash
 npm run local
 ```
 
 Open `http://127.0.0.1:3100`. Fastify serves the built React assets and listens only on the loopback interface. The front-desk routes intentionally have no PIN or browser session because this is a trusted, local hackathon workspace.
+
+### Start contributing
+
+Create a feature branch from the shared local-only branch:
+
+```bash
+git switch agent/revive-local-only
+git pull
+git switch -c feat/<short-description>
+```
+
+Before pushing a change, run:
+
+```bash
+npm run check
+```
+
+This runs TypeScript, all Vitest suites, and the production build. For a faster focused loop:
+
+```bash
+npm run test:run -- src/domain/engine.test.ts
+npm run test:run -- src/web/pages/CalendarPage.test.tsx
+```
+
+### Project map
+
+```text
+src/domain/   Deterministic availability, booking, cancellation, and refill logic
+src/server/   Fastify APIs, MongoDB store, webhooks, workers, and provider adapters
+src/web/      React/Tailwind front-desk workspace
+scripts/      Backboard and Telegram setup helpers
+docs/         Approved designs and implementation records
+```
+
+Keep scheduling mutations inside the deterministic engine—Backboard, Telegram, and ElevenLabs may request typed operations but must never write MongoDB directly. Do not commit `.env`, provider tokens, phone numbers, or Atlas credentials. Preserve Telegram and ElevenLabs webhook authentication even though the localhost operator UI is intentionally open.
+
+### Working with the shared demo
+
+- Use `DATA_STORE=memory` for isolated feature work and repeatable tests.
+- Use `DATA_STORE=mongodb` only with a securely shared Atlas URI and an Atlas Network Access entry for your current IP.
+- Use Settings → **Reset demo week** to restore the seeded Josh/Sarah/Alex scenario.
+- Telegram and ElevenLabs cannot reach localhost directly. Live inbound testing requires a temporary HTTPS tunnel to port 3100 and matching provider webhook URLs.
 
 ## Front-desk workspace
 
