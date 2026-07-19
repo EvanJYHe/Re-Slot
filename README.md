@@ -1,195 +1,209 @@
-# Re-Slot
+# Re-Slot: The AI Workforce That Fills Empty Time
 
-Re-Slot is a deterministic scheduling and cancellation-refill operator for a Toronto barbershop. Customers talk through real Telegram and phone channels; Backboard and ElevenLabs interpret the conversation, while a TypeScript state machine is the only code allowed to mutate appointments.
+## Inspiration
 
-The demo path is deliberately concrete: Josh cancels a 5 PM haircut, Sarah accepts 5 PM by voice and frees 6 PM, then Alex accepts 6 PM through Telegram. The live calendar updates from authoritative state over SSE.
+In appointment-based businesses, time is perishable inventory.
 
-## Quick start for teammates
+When a customer cancels, the employee is still working, the rent is still due, and the empty hour can never be sold again. Salons, clinics, repair shops, and other staffed businesses lose revenue while front-desk teams manually call customers, search waitlists, offer discounts, and coordinate schedules.
 
-Requirements: Node.js 22+ and npm. MongoDB Atlas and provider credentials are optional for normal UI/domain development.
+Existing scheduling software records the cancellation.
 
-```bash
-git clone https://github.com/ManagementMO/Re-Slot.git
-cd Re-Slot
-git switch --track origin/agent/re-slot-local-only
-npm install
-cp .env.example .env
-npm run dev
-```
+Re-Slot responds to it.
 
-Open `http://127.0.0.1:5174`. The default `.env.example` uses seeded in-memory data, so teammates can build the calendar, agent workspace, CRM, and scheduling engine without shared credentials. Fastify runs at `http://127.0.0.1:3100`, and Vite proxies API, health, and webhook traffic to it.
+We wanted to build an AI agent that could reason through the entire recovery process, contact the right customers, negotiate a new time, update the schedule safely, and continue working until every recoverable opening was filled.
 
-For the production-shaped local demo in one process:
+## What it does
 
-```bash
-npm run local
-```
+Re-Slot is an autonomous revenue recovery and customer operations platform for appointment-based businesses.
 
-Open `http://127.0.0.1:3100`. Fastify serves the built React assets and listens only on the loopback interface. The front-desk routes intentionally have no PIN or browser session because this is a trusted, local hackathon workspace.
+When an appointment is cancelled, Re-Slot launches a multi-step recovery workflow:
 
-### Start contributing
+1. It identifies the exact employee, service, time, and revenue at risk.
+2. It searches the CRM for customers who could take the opening.
+3. It evaluates later appointments, waitlist entries, customer preferences, consent, staff compatibility, and previous outreach.
+4. It ranks candidates based on business policy.
+5. It decides whether to call or message each customer.
+6. It creates a personalized offer, including a coupon when needed.
+7. It interprets the customer's response through natural conversation.
+8. It verifies explicit confirmation and commits the change.
+9. If moving that customer creates another opening, it starts a new recovery chain automatically.
+10. It reports the entire process to the front desk in real time.
 
-Create a feature branch from the shared local-only branch:
+Our demo shows the full chain:
 
-```bash
-git switch agent/re-slot-local-only
-git pull
-git switch -c feat/<short-description>
-```
+> Josh cancels his 5 PM haircut through Telegram. Re-Slot reasons that Sarah, currently booked for 6 PM, is the best candidate because she previously consented to earlier appointments. It calls Sarah using an AI voice agent. Sarah accepts 5 PM, opening her original 6 PM slot. Re-Slot then finds Alex on the waitlist, contacts him through Telegram, and fills 6 PM.
 
-Before pushing a change, run:
+One cancellation becomes two successful conversations and two optimized appointments.
 
-```bash
-npm run check
-```
+### AI-powered CRM
 
-This runs TypeScript, all Vitest suites, and the production build. For a faster focused loop:
+Re-Slot includes a customer operations CRM containing:
 
-```bash
-npm run test:run -- src/domain/engine.test.ts
-npm run test:run -- src/web/pages/CalendarPage.test.tsx
-```
+- Contact identities and preferred channels
+- Appointment and cancellation history
+- Staff and service preferences
+- Waitlist availability
+- Earlier-time consent
+- Flexible staff preferences
+- Past-customer outreach eligibility
+- Active offers and conversations
+- Private operator notes
+- Voice transcripts and Telegram history
 
-### Project map
+This gives the agent the context required to make personalized decisions instead of sending generic mass notifications.
 
-```text
-src/domain/   Deterministic availability, booking, cancellation, and refill logic
-src/server/   Fastify APIs, MongoDB store, webhooks, workers, and provider adapters
-src/web/      React/Tailwind front-desk workspace
-scripts/      Backboard and Telegram setup helpers
-docs/         Approved designs and implementation records
-```
+### Intelligent coupons and incentives
 
-Keep scheduling mutations inside the deterministic engine—Backboard, Telegram, and ElevenLabs may request typed operations but must never write MongoDB directly. Do not commit `.env`, provider tokens, phone numbers, or Atlas credentials. Preserve Telegram and ElevenLabs webhook authentication even though the localhost operator UI is intentionally open.
+When the best candidates decline, Re-Slot can progressively increase the incentive.
 
-### Working with the shared demo
+Its coupon engine generates controlled offers such as 5%, 10%, or 15% off, while respecting a business-defined maximum. Re-Slot can use incentives only when necessary, helping recover revenue without immediately discounting every opening.
 
-- Use `DATA_STORE=memory` for isolated feature work and repeatable tests.
-- Use `DATA_STORE=mongodb` only with a securely shared Atlas URI and an Atlas Network Access entry for your current IP.
-- Use Settings → **Reset demo week** to restore the seeded Josh/Sarah/Alex scenario.
-- Telegram can run locally with `TELEGRAM_LOCAL_POLLING=true`; ElevenLabs inbound calls still require a temporary HTTPS tunnel to port 3100.
+### A complete front-desk command center
 
-## Front-desk workspace
+Staff can supervise Re-Slot through a live workspace with:
 
-The operator UI is a focused four-page workspace:
+- Day, week, and month calendars
+- Multi-employee filtering
+- Customer and appointment management
+- Unified voice and Telegram conversations
+- Waitlist controls
+- Customer CRM profiles
+- Recovery timelines
+- Automation and coupon policies
+- Integration health
+- Live schedule updates
 
-- **Calendar** — Day, Week, and Month views, an All/Jeremy/Maya/Devon filter, live refill state, and engine-backed booking, rescheduling, and cancellation.
-- **Agent** — real Telegram and voice conversations, scheduling actions, waitlist supervision, and compact customer context. No provider activity is fabricated for the demo.
-- **Customers** — masked contact identities, scheduling preferences, appointments, waitlist entries, and private operator notes.
-- **Settings** — refill policies, connection health, and a deliberately confirmed demo reset.
+The goal is not to replace the front desk. It is to give one person the operational capacity of an entire scheduling team.
 
-Calendar, Agent, Customers, and Settings open directly on localhost. Reset seeds a realistic Monday-to-Friday shop week while preserving linked demo identities and Sarah's configured phone number. Telegram and ElevenLabs webhooks still require their provider secrets; removing the human operator gate does not weaken provider authentication.
+## How we built it
 
-## Provider setup
+Re-Slot combines conversational AI, telephony, messaging, transactional scheduling, CRM data, and a durable agent workflow.
 
-Keep real credentials only in the ignored local `.env`. Never commit them.
+### The agent reasoning layer
 
-ElevenLabs cannot call a loopback address. For live inbound voice, expose port 3100 through a temporary HTTPS tunnel, set `PUBLIC_BASE_URL` to that tunnel URL, and remove the tunnel when the demo ends. Telegram can instead use the local polling mode below. The operator workspace itself remains local.
+Gemini supplies Re-Slot's language understanding and conversational reasoning through Backboard's agent infrastructure. Backboard maintains an isolated thread for each customer, carries the active scheduling context, and orchestrates typed tool calls such as:
 
-### Backboard
+- Check availability
+- Book an appointment
+- Cancel an appointment
+- Reschedule an appointment
+- Accept or decline an offer
 
-Create or reuse the single Re-Slot assistant:
+The agent can reason and communicate naturally, but it cannot directly edit the database.
 
-```bash
-npm run setup:backboard
-```
+### The deterministic action layer
 
-Copy the returned assistant ID into `BACKBOARD_ASSISTANT_ID`. Each customer receives a separate persisted Backboard thread and every message uses `memory=off`. Models receive scheduling tools, never MongoDB access or a caller-supplied customer identity.
+We built a custom TypeScript scheduling engine that is the only component allowed to change appointments.
 
-### Telegram
+Every action verifies:
 
-For local development, set this in `.env` and start the normal development process:
+- Authenticated customer ownership
+- Explicit confirmation
+- Real-time availability
+- Employee and service compatibility
+- Working hours
+- Offer expiration
+- Appointment versions
+- Concurrent responses
+- Consent and outreach policies
 
-```bash
-TELEGRAM_LOCAL_POLLING=true
-npm run dev
-```
+This architecture gives us the intelligence of an AI agent with the safety of a transactional system.
 
-Re-Slot removes the bot's remote webhook without dropping pending messages, then long-polls Telegram and sends every update through the same authenticated conversation handler used in production. Stop the local process before starting another poller. When returning to a public deployment, unset `TELEGRAM_LOCAL_POLLING` and register the HTTPS webhook again.
+### The recovery state machine
 
-If only `api.telegram.org` fails to resolve on the local network, `TELEGRAM_API_IP` can temporarily pin Telegram's current IPv4 address. This override affects only the Telegram client and keeps normal hostname-based TLS verification enabled. Remove it once system DNS is working again.
+Every cancellation creates a persistent recovery job. A background worker leases the job, ranks candidates, creates offers, sends them, waits for responses, retries failures, expires stale offers, and continues through the candidate list.
 
-The equivalent temporary override for a DNS failure affecting the scheduling assistant is `BACKBOARD_API_IP`. Backboard uses a load balancer with short-lived addresses, so refresh this value through a trusted DNS resolver and remove it when local DNS recovers.
+If accepting an offer creates another opening, the engine creates a successor job. This turns schedule recovery into a graph of linked decisions rather than a single notification.
 
-For public webhook mode, set `PUBLIC_BASE_URL` to the HTTPS deployment or tunnel URL, then run:
+The worker is restart-safe, idempotent, and designed for real provider failures.
 
-```bash
-npm run setup:telegram
-npm run demo:links
-```
+### Voice, messaging, and CRM
 
-Open the generated Josh link on Josh's Telegram account and the Alex link on Alex's account. The signed links are private, one-customer demo credentials. Telegram requests must include the configured secret-token header and are deduplicated by update ID.
+- **ElevenLabs and Twilio** power natural AI phone calls.
+- **Telegram** supports real-time customer messaging.
+- **Gemini via Backboard** handles natural-language reasoning, isolated conversation threads, and typed tool orchestration.
+- **MongoDB Atlas** stores appointments, CRM records, offers, waitlists, conversations, events, and recovery jobs.
+- **Fastify and Node.js** power the API, webhooks, workers, and provider integrations.
+- **React, Vite, and Tailwind CSS** power the operator workspace.
+- **Server-Sent Events** update the live calendar whenever the agent commits an action.
 
-### ElevenLabs and Twilio
+Both voice and Telegram interactions are normalized into one conversation history, allowing Re-Slot to reason across channels while giving staff a single operational view.
 
-1. Give the ElevenLabs key Conversational AI read/write and calling permissions.
-2. Import a voice-capable Twilio number through ElevenLabs' native phone-number integration.
-3. Create one low-latency Re-Slot agent and set its ID and the imported phone-number ID in the environment.
-4. Configure the inbound context URL as `/webhooks/elevenlabs/context`, server tools under `/webhooks/elevenlabs/tools/:tool`, and post-call events at `/webhooks/elevenlabs/post-call`.
-5. Put the same strong webhook secret in ElevenLabs and `ELEVENLABS_WEBHOOK_SECRET`, and set Sarah's E.164 demo number in `SARAH_PHONE`.
-6. Leave call recording disabled. Re-Slot also sends `call_recording_enabled: false` on every outbound request.
+## Challenges we ran into
 
-For live localhost scheduling, start an HTTPS tunnel to the Fastify port, put its URL in
-`PUBLIC_BASE_URL`, and update the agent's scheduling tools:
+### Building an agent that can take real actions safely
 
-```bash
-ngrok http 3100
-npm run setup:elevenlabs
-```
+Letting an LLM directly modify appointments would create serious risks. A hallucinated customer ID, stale time slot, or duplicated webhook could corrupt the schedule.
 
-The setup command repoints the existing ElevenLabs tools to the temporary tunnel and gives the
-agent an availability-first booking flow. Keep the local server and tunnel running during calls.
-To place a recording-disabled demo call with a signed customer identity:
+We separated reasoning from authority. The AI proposes typed operations, while the scheduling engine authenticates, validates, and commits them atomically.
 
-```bash
-DESTINATION_PHONE=+1XXXXXXXXXX npm run demo:call
-```
+### Coordinating cascading schedule changes
 
-Recording stays off by default. Enable it only with the caller's explicit consent:
+Moving one customer often creates another opening. Re-Slot needed to continue reasoning across multiple appointments without creating infinite chains, contacting the same person twice, or losing progress after a restart.
 
-```bash
-CALL_RECORDING_ENABLED=true DESTINATION_PHONE=+1XXXXXXXXXX npm run demo:call
-```
+We solved this with persistent recovery jobs, worker leases, movement limits, candidate history, and successor jobs.
 
-The agent asks for the service, date, preferred time range, and barber preference one question at
-a time. It reads live slots and creates an appointment only after the caller confirms the exact
-service, barber, date, and time.
+### Handling concurrency across phone and messaging
 
-Inbound calls are resolved from the authenticated caller number. Tool requests carry a short-lived, signed actor token in a secret dynamic variable; model-supplied customer IDs are ignored. Decline, no-answer, and initiation failures safely advance the persisted refill job.
+A customer might accept by phone while another reply is arriving through Telegram. Offers can also expire while a conversation is still happening.
 
-## Atlas
+Re-Slot validates the offer and slot inside a transaction immediately before committing. Only one acceptance can win. Every stale response receives a safe explanation.
 
-Atlas remains the external source of truth for the real demo. Set `DATA_STORE=mongodb`, `MONGODB_URI`, and `MONGODB_DB=revive` in `.env`. Allow the current development machine in Atlas Network Access, use TLS and a least-privilege database user, and remove temporary access after the hackathon. The local app falls back to memory only in development when Atlas is unavailable; production-shaped `npm run local` fails closed instead.
+### Creating real autonomy instead of a scripted demo
 
-## API surface
+We did not hard-code the cancellation sequence. The agent uses real customer records, provider events, ranking policies, conversations, and scheduling transactions.
 
-- `GET /health`
-- `GET /api/v1/calendar?date=YYYY-MM-DD`
-- `GET /api/v1/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD`
-- `GET /api/v1/availability`
-- `POST /api/v1/appointments`
-- `PATCH /api/v1/appointments/:id`
-- `POST /api/v1/appointments/:id/cancel`
-- `GET/PATCH /api/v1/customers/:id`
-- `POST /api/v1/customers/:id/notes`
-- `GET /api/v1/conversations` and `GET /api/v1/conversations/:id`
-- `GET/PATCH /api/v1/waitlist/:id`
-- `GET /api/v1/activity`
-- `GET/PATCH /api/v1/settings`
-- `GET /api/v1/refill-jobs/:id`
-- `GET /api/v1/events`
-- `POST /api/v1/demo/reset`
-- `POST /webhooks/telegram`
-- `POST /webhooks/elevenlabs/context`
-- `POST /webhooks/elevenlabs/post-call`
-- `POST /webhooks/elevenlabs/tools/:tool`
+The demo works because the system actually reasons through the workflow.
 
-## Verification
+## Accomplishments that we're proud of
 
-```bash
-npm run check
-```
+We built an agent that does much more than chat.
 
-Tests cover availability, confirmation and consent, candidate ordering, discounts and move limits, atomic offer acceptance, expiration and retries, MongoDB transactions/indexes, duplicate webhooks, Backboard tool loops, ElevenLabs signatures, SSE, the live calendar, and the complete golden path.
+Re-Slot identifies lost revenue, searches its CRM, ranks customers, selects a communication channel, creates an offer, calls or messages the customer, interprets their response, safely updates the calendar, and continues recovering the schedule.
 
-The approved system design and execution record live in [docs/superpowers/specs/2026-07-18-re-slot-design.md](docs/superpowers/specs/2026-07-18-re-slot-design.md) and [docs/superpowers/plans/2026-07-18-re-slot-implementation.md](docs/superpowers/plans/2026-07-18-re-slot-implementation.md). The locked front-desk redesign is documented in [docs/superpowers/specs/2026-07-18-re-slot-frontend-redesign.md](docs/superpowers/specs/2026-07-18-re-slot-frontend-redesign.md) with its execution plan in [docs/superpowers/plans/2026-07-18-front-desk-redesign-implementation.md](docs/superpowers/plans/2026-07-18-front-desk-redesign-implementation.md).
+We are especially proud of:
+
+- The end-to-end voice and Telegram recovery chain
+- The deterministic safety layer underneath the AI
+- Atomic protection against double bookings
+- Persistent, restart-safe agent workflows
+- Cross-channel customer memory
+- Automated coupon escalation
+- A complete scheduling CRM and operator workspace
+- Real-time visibility into every agent decision
+
+Watching Sarah accept by voice, move into Josh's appointment, and trigger a new Telegram offer for Alex felt like watching an actual operations employee work.
+
+## What we learned
+
+We learned that the most valuable AI agents do not just answer questions. They own outcomes.
+
+A chatbot might tell a business that an appointment was cancelled. Re-Slot keeps working until the business has recovered as much value as possible.
+
+We also learned that reliable agents need strong boundaries. Natural language is ideal for understanding people, but deterministic code must control money, identity, consent, and scheduling state.
+
+Most importantly, we learned that cancellations are not isolated events. A schedule is a connected system. One change can create a chain of opportunities, and an agent can reason through that chain far faster than a human operator.
+
+## What's next for Re-Slot
+
+Next, we are turning Re-Slot into a complete AI operations platform for the staffing and appointment industry.
+
+Planned capabilities include:
+
+- SMS, WhatsApp, email, and web chat
+- Integrations with existing booking platforms
+- AI-generated customer segments and campaigns
+- Personalized coupons based on acceptance probability
+- Predictive cancellation and no-show detection
+- Multi-location and multi-employee optimization
+- Automatic staff reallocation when demand changes
+- Revenue forecasting and recovered-revenue analytics
+- Customer loyalty and re-engagement workflows
+- Human approval rules for high-value decisions
+- Multi-agent coordination for scheduling, retention, and customer support
+
+Our long-term vision is an AI workforce that continuously protects business utilization.
+
+Scheduling software records empty time.
+
+**Re-Slot fills it.**

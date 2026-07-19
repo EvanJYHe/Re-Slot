@@ -87,6 +87,11 @@ export function DashboardApp({
 
   useEffect(() => { void refreshCalendar(); }, [refreshCalendar]);
   useEffect(() => {
+    if (error === undefined) return;
+    const retry = window.setTimeout(() => void refreshCalendar(), 2_000);
+    return () => window.clearTimeout(retry);
+  }, [error, refreshCalendar]);
+  useEffect(() => {
     const source = eventSourceFactory("/api/v1/events");
     if (source === undefined) return;
     source.addEventListener("domain", () => {

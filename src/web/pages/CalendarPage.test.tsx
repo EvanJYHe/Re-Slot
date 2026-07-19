@@ -325,7 +325,8 @@ describe("CalendarPage", () => {
 
     await user.click(screen.getByRole("button", { name: "New appointment" }));
     const dialog = screen.getByRole("dialog", { name: "New appointment" });
-    expect(dialog).toHaveClass("rounded-[4px]");
+    expect(dialog).not.toHaveClass("shadow-panel");
+    expect(dialog).toHaveClass("modal-panel", "rounded-[4px]", "border", "border-line", "bg-panel");
     await waitFor(() => expect(client.getCustomers).toHaveBeenCalled());
     await waitFor(() => expect(client.getAvailability).toHaveBeenCalled());
     expect(within(dialog).getByLabelText("Customer")).toHaveClass("rounded-revive");
