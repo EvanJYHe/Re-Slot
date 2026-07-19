@@ -1,7 +1,7 @@
 # REVIVE front-desk workspace redesign
 
-**Status:** Approved visual direction; awaiting written-spec review  
-**Audience:** A front-desk owner supervising REVIVE  
+**Status:** Approved and implemented
+**Audience:** A front-desk owner supervising REVIVE
 **Reference:** Visual companion session `64389-1784414982`, locked three-column Agent workspace
 
 ## Objective
