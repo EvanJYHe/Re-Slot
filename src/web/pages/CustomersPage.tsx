@@ -9,6 +9,8 @@ interface CustomersPageProps {
   refreshKey: number;
 }
 
+const CUSTOMER_LIST_PREVIEW_LIMIT = 12;
+
 function formatDate(value: string): string {
   return DateTime.fromISO(value).setZone("America/Toronto").toFormat("ccc, LLL d · h:mm a");
 }
@@ -322,23 +324,30 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
           <h4 className="text-sm font-semibold">Preferences</h4>
           <div className="mt-2 max-w-2xl">
             <PreferenceToggle
+              checked={detail.preferences.replacementOffersEnabled}
+              detail="Master switch for cancellation-opening calls and messages. Turning it off also removes any active offer."
+              disabled={saving === "Saving…"}
+              label="Receive replacement offers"
+              onChange={(checked) => void updatePreference({ replacementOffersEnabled: checked })}
+            />
+            <PreferenceToggle
               checked={detail.preferences.earlierMoveConsent}
               detail="Re-Slot may offer an earlier opening when the same service and barber match."
-              disabled={saving === "Saving…"}
+              disabled={saving === "Saving…" || !detail.preferences.replacementOffersEnabled}
               label="Offer earlier appointments"
               onChange={(checked) => void updatePreference({ earlierMoveConsent: checked })}
             />
             <PreferenceToggle
               checked={detail.preferences.flexibleBarberPreference}
               detail="Include another qualified barber when the requested barber is unavailable."
-              disabled={saving === "Saving…"}
+              disabled={saving === "Saving…" || !detail.preferences.replacementOffersEnabled}
               label="Any qualified barber"
               onChange={(checked) => void updatePreference({ flexibleBarberPreference: checked })}
             />
             <PreferenceToggle
               checked={detail.preferences.pastCustomerOptIn}
               detail="Allow vacancy outreach after waitlist and same-day moves have been exhausted."
-              disabled={saving === "Saving…"}
+              disabled={saving === "Saving…" || !detail.preferences.replacementOffersEnabled}
               label="Past-customer outreach"
               onChange={(checked) => void updatePreference({ pastCustomerOptIn: checked })}
             />
@@ -405,6 +414,7 @@ export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
   const [detail, setDetail] = useState<CustomerDetail>();
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState<string>();
+  const [showAllCustomers, setShowAllCustomers] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -435,6 +445,9 @@ export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
         || left.name.localeCompare(right.name)
       ));
   }, [customers, filter, query]);
+  const visibleCustomers = showAllCustomers || query.trim() !== ""
+    ? filteredCustomers
+    : filteredCustomers.slice(0, CUSTOMER_LIST_PREVIEW_LIMIT);
 
   useEffect(() => {
     setSelectedId((current) => (
@@ -505,14 +518,27 @@ export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
                 value={query}
               />
               <div className="mt-3 flex items-center justify-between gap-3">
-                <span className="text-xs text-muted">{filteredCustomers.length} customer{filteredCustomers.length === 1 ? "" : "s"}</span>
+                <span className="text-xs text-muted">
+                  {visibleCustomers.length === filteredCustomers.length
+                    ? `${filteredCustomers.length} customer${filteredCustomers.length === 1 ? "" : "s"}`
+                    : `Showing ${visibleCustomers.length} of ${filteredCustomers.length}`}
+                </span>
                 {filter === "all" ? null : (
                   <button className="rounded-full border border-line px-2.5 py-1 text-xs font-medium text-revive-dark transition-colors hover:border-revive hover:bg-[#edf4ef]" onClick={() => setFilter("all")} type="button">Clear filter</button>
                 )}
               </div>
             </div>
             <div className="max-h-[600px] overflow-y-auto">
-              <CustomerList customers={filteredCustomers} onSelect={setSelectedId} selectedId={selectedId} />
+              <CustomerList customers={visibleCustomers} onSelect={setSelectedId} selectedId={selectedId} />
+              {query.trim() !== "" || filteredCustomers.length <= CUSTOMER_LIST_PREVIEW_LIMIT ? null : (
+                <button
+                  className="w-full border-t border-line px-4 py-3 text-xs font-medium text-revive-dark hover:bg-[#edf4ef]"
+                  onClick={() => setShowAllCustomers((current) => !current)}
+                  type="button"
+                >
+                  {showAllCustomers ? "Show fewer customers" : `Show all ${filteredCustomers.length} customers`}
+                </button>
+              )}
             </div>
           </aside>
           {loadingDetail ? (

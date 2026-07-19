@@ -116,4 +116,8 @@ export const defaultApi: ReviveApi = {
     `/api/v1/appointments/${encodeURIComponent(id)}/cancel`,
     { method: "POST" },
   ),
+  cancelRefillJob: (id) => request<{ id: string; status: string }>(
+    `/api/v1/refill-jobs/${encodeURIComponent(id)}/cancel`,
+    { method: "POST" },
+  ),
 };

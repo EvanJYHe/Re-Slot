@@ -5,6 +5,7 @@ export type RefillJobStatus =
   | "leased"
   | "awaiting_offer"
   | "completed"
+  | "cancelled"
   | "exhausted"
   | "failed";
 export type OfferStatus =
@@ -32,6 +33,7 @@ export interface Customer {
   telegramChatId?: string;
   phone?: string;
   contactPreference: ContactPreference;
+  replacementOffersEnabled?: boolean;
   earlierMoveConsent: boolean;
   flexibleBarberPreference: boolean;
   pastCustomerOptIn: boolean;
@@ -142,6 +144,7 @@ export interface TimelineEvent {
     | "delivery_failed"
     | "appointment_moved"
     | "opening_filled"
+    | "opening_cancelled"
     | "search_exhausted";
   at: string;
   message: string;

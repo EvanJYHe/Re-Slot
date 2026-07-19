@@ -118,6 +118,7 @@ function customer(id: string): CustomerDetail {
       : { telegram: "Linked account", phone: "Not linked" },
     preferences: {
       contactPreference: sarah ? "voice" : "telegram",
+      replacementOffersEnabled: true,
       earlierMoveConsent: sarah,
       flexibleBarberPreference: false,
       pastCustomerOptIn: sarah,
@@ -224,6 +225,7 @@ function api(): ReviveApi {
       }
       return { type: "committed" as const, operation: "cancel", message: "Cancelled" };
     }),
+    cancelRefillJob: vi.fn(async () => { throw new Error("unused"); }),
   };
 }
 
@@ -304,6 +306,11 @@ describe("CustomersPage", () => {
       "sarah",
       { pastCustomerOptIn: false },
     ));
+    await user.click(screen.getByRole("checkbox", { name: "Receive replacement offers" }));
+    await waitFor(() => expect(client.patchCustomer).toHaveBeenCalledWith(
+      "sarah",
+      { replacementOffersEnabled: false },
+    ));
 
     await user.type(screen.getByLabelText("New private note"), "  Ask about a beard trim next time.  ");
     await user.click(screen.getByRole("button", { name: "Add private note" }));
@@ -312,7 +319,7 @@ describe("CustomersPage", () => {
       "Ask about a beard trim next time.",
     ));
     expect(await screen.findByText("Ask about a beard trim next time.")).toBeInTheDocument();
-    expect(client.getCustomer).toHaveBeenCalledTimes(6);
+    expect(client.getCustomer).toHaveBeenCalledTimes(7);
     expect(screen.queryByText(/segments|lifetime value|campaign/i)).not.toBeInTheDocument();
   });
 

@@ -164,6 +164,7 @@ export interface CustomerDetail {
   identities: { telegram: string; phone: string };
   preferences: {
     contactPreference: "telegram" | "voice";
+    replacementOffersEnabled: boolean;
     earlierMoveConsent: boolean;
     flexibleBarberPreference: boolean;
     pastCustomerOptIn: boolean;
@@ -282,6 +283,7 @@ export interface ReviveApi {
     input: { barberId: string; startAt: string },
   ): Promise<OperationResult>;
   cancelAppointment(id: string): Promise<OperationResult>;
+  cancelRefillJob(id: string): Promise<{ id: string; status: string }>;
 }
 
 export interface EventSourceLike {

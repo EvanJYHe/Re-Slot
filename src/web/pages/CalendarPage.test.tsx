@@ -188,6 +188,7 @@ function api(): ReviveApi {
     bookAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "book", message: "Booked" })),
     rescheduleAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "reschedule", message: "Moved" })),
     cancelAppointment: vi.fn(async () => ({ type: "committed" as const, operation: "cancel", message: "Cancelled" })),
+    cancelRefillJob: vi.fn(async (id) => ({ id, status: "cancelled" })),
   };
 }
 
@@ -290,7 +291,8 @@ describe("CalendarPage", () => {
 
   it("opens focused appointment and refill detail drawers", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    const client = api();
+    render(<Harness client={client} />);
 
     await user.click(screen.getByRole("button", { name: /Sarah, Signature haircut/ }));
     expect(within(screen.getByRole("dialog", { name: "Appointment details" })).getByText("Jeremy")).toBeInTheDocument();
@@ -302,6 +304,9 @@ describe("CalendarPage", () => {
     expect(within(refill).getByText("Josh cancelled his 5 PM appointment.")).toBeInTheDocument();
     expect(within(refill).getByText("Re-Slot called Sarah.")).toBeInTheDocument();
     expect(refill.querySelector(".rounded-full.bg-revive")).toBeNull();
+    await user.click(within(refill).getByRole("button", { name: "Close Open Chair" }));
+    await user.click(within(refill).getByRole("button", { name: "Confirm close" }));
+    await waitFor(() => expect(client.cancelRefillJob).toHaveBeenCalledWith("job-1"));
   });
 
   it("books from live availability and refetches after confirmation", async () => {

@@ -425,11 +425,30 @@ function MonthCalendar({ calendar, anchorDate, dates, barberFilter, onSelectDate
   );
 }
 
-function RefillDrawer({ refill, timezone, onClose }: {
+function RefillDrawer({ api, refill, timezone, onCancelled, onClose }: {
+  api: ReviveApi;
   refill: ActiveRefill;
   timezone: string;
+  onCancelled: () => Promise<void>;
   onClose: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState<string>();
+
+  const cancelRefill = async () => {
+    setCancelling(true);
+    setError(undefined);
+    try {
+      await api.cancelRefillJob(refill.id);
+      onClose();
+      await onCancelled();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The Open Chair could not be closed.");
+      setCancelling(false);
+    }
+  };
+
   return (
     <Drawer onClose={onClose} title="Refill timeline">
       <div className="rounded-revive border border-[#ead49f] bg-amber-soft p-4">
@@ -447,6 +466,23 @@ function RefillDrawer({ refill, timezone, onClose }: {
           </li>
         ))}
       </ol>
+      <div className="mt-2 border-t border-line pt-5">
+        {confirming ? (
+          <div className="rounded-revive border border-[#ead2d2] bg-[#fff9f9] p-3">
+            <strong className="block text-sm font-medium">Close this Open Chair?</strong>
+            <p className="mt-1 text-xs leading-5 text-muted">Re-Slot will stop calling or messaging people for this opening.</p>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button disabled={cancelling} onClick={() => setConfirming(false)}>Keep open</Button>
+              <Button disabled={cancelling} onClick={() => void cancelRefill()} variant="danger">
+                {cancelling ? "Closing…" : "Confirm close"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button className="w-full" onClick={() => setConfirming(true)} variant="danger">Close Open Chair</Button>
+        )}
+        {error === undefined ? null : <p aria-live="polite" className="mt-2 text-xs text-[#9e3f3f]">{error}</p>}
+      </div>
     </Drawer>
   );
 }
@@ -839,6 +875,8 @@ export function CalendarPage({
       )}
       {selectedRefill === undefined || calendar === undefined ? null : (
         <RefillDrawer
+          api={api}
+          onCancelled={onMutated}
           onClose={() => setSelectedRefill(undefined)}
           refill={selectedRefill}
           timezone={calendar.timezone}

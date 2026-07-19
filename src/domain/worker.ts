@@ -30,6 +30,8 @@ export type WorkerRunResult =
   | { status: "delivery_failed"; offerId: string; customerId: string }
   | { status: "exhausted"; jobId: string };
 
+const MINIMUM_VOICE_OFFER_EXPIRY_SECONDS = 15 * 60;
+
 function jobCanBeLeased(job: RefillJob, now: DateTime): boolean {
   if (job.status === "pending") {
     return job.retryAt === undefined || DateTime.fromISO(job.retryAt).toMillis() <= now.toMillis();
@@ -44,6 +46,7 @@ interface WorkerOptions {
   idFactory?: () => string;
   leaseSeconds?: number;
   maxDeliveryAttempts?: number;
+  priorityVoiceCustomerId?: string;
 }
 
 export class RefillWorker {
@@ -72,7 +75,19 @@ export class RefillWorker {
     const snapshot = await this.store.read();
     const job = snapshot.refillJobs.find((candidate) => candidate.id === leasedJobId);
     if (job === undefined) return { status: "idle" };
-    const candidates = rankRefillCandidates({
+    const priorityCustomerId = this.options.priorityVoiceCustomerId;
+    const priorityHasAnotherActiveOffer = priorityCustomerId !== undefined
+      && !job.attemptedCustomerIds.includes(priorityCustomerId)
+      && snapshot.offers.some((offer) => (
+        offer.customerId === priorityCustomerId
+        && offer.jobId !== job.id
+        && ["pending", "delivered"].includes(offer.status)
+      ));
+    if (priorityHasAnotherActiveOffer) {
+      await this.deferLeasedJob(job.id, now.plus({ seconds: 15 }).toUTC().toISO()!, nowIso);
+      return { status: "idle" };
+    }
+    let candidates = rankRefillCandidates({
       job,
       customers: snapshot.customers,
       appointments: snapshot.appointments,
@@ -80,6 +95,24 @@ export class RefillWorker {
       settings: snapshot.settings,
       now: nowIso,
     });
+    const priorityCustomer = priorityCustomerId === undefined
+      ? undefined
+      : snapshot.customers.find((customer) => customer.id === priorityCustomerId);
+    if (
+      priorityCustomer !== undefined
+      && priorityCustomer.phone !== undefined
+      && priorityCustomer.replacementOffersEnabled !== false
+      && !job.attemptedCustomerIds.includes(priorityCustomer.id)
+    ) {
+      const rankedPriority = candidates.find((candidate) => candidate.customerId === priorityCustomer.id);
+      const priorityCandidate: RefillCandidate = rankedPriority === undefined
+        ? { customerId: priorityCustomer.id, kind: "past_customer", channel: "voice" }
+        : { ...rankedPriority, channel: "voice" };
+      candidates = [
+        priorityCandidate,
+        ...candidates.filter((candidate) => candidate.customerId !== priorityCustomer.id),
+      ];
+    }
     const candidate = candidates[0];
     if (candidate === undefined) {
       await this.markExhausted(job.id, nowIso);
@@ -178,6 +211,19 @@ export class RefillWorker {
     });
   }
 
+  private async deferLeasedJob(jobId: string, retryAt: string, nowIso: string): Promise<void> {
+    await this.store.transaction((state) => {
+      const job = state.refillJobs.find((candidate) => candidate.id === jobId);
+      if (job === undefined || job.status !== "leased" || job.leaseOwner !== this.options.workerId) return;
+      job.status = "pending";
+      job.retryAt = retryAt;
+      delete job.leaseOwner;
+      delete job.leaseExpiresAt;
+      job.updatedAt = nowIso;
+      job.version += 1;
+    });
+  }
+
   private async markExhausted(jobId: string, nowIso: string): Promise<void> {
     await this.store.transaction((state) => {
       const job = state.refillJobs.find((candidate) => candidate.id === jobId);
@@ -208,8 +254,11 @@ export class RefillWorker {
     nowIso: string,
   ): Promise<OutreachOffer | undefined> {
     const offerId = this.makeId();
+    const expirySeconds = candidate.channel === "voice"
+      ? Math.max(snapshot.settings.offerExpirySeconds, MINIMUM_VOICE_OFFER_EXPIRY_SECONDS)
+      : snapshot.settings.offerExpirySeconds;
     const expiresAt = DateTime.fromISO(nowIso)
-      .plus({ seconds: snapshot.settings.offerExpirySeconds })
+      .plus({ seconds: expirySeconds })
       .toUTC()
       .toISO()!;
     const movingAppointment = candidate.appointmentId === undefined
@@ -218,7 +267,9 @@ export class RefillWorker {
     const priorPastOffers = snapshot.offers.filter(
       (offer) => offer.jobId === leasedJob.id && offer.candidateKind === "past_customer",
     ).length;
-    const discountPercent = candidate.kind === "past_customer"
+    const discountPercent = candidate.customerId === this.options.priorityVoiceCustomerId
+      ? 0
+      : candidate.kind === "past_customer"
       ? calculatePastCustomerDiscount(priorPastOffers, snapshot.settings.maxDiscountPercent)
       : 0;
 

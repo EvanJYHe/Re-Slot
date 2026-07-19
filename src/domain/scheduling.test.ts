@@ -216,6 +216,23 @@ describe("rankRefillCandidates", () => {
 
     expect(ranked.map((candidate) => candidate.customerId)).toEqual(["pat"]);
   });
+
+  it("excludes a customer from every replacement path when replacement offers are disabled", () => {
+    const ranked = rankRefillCandidates({
+      job,
+      customers: customers.map((candidate) => (
+        ["sarah", "alex", "pat"].includes(candidate.id)
+          ? { ...candidate, replacementOffersEnabled: false }
+          : candidate
+      )),
+      appointments: [laterAppointment, ...historicalAppointments],
+      waitlist,
+      settings,
+      now: DateTime.fromISO(slotStart).minus({ hours: 1 }).toISO()!,
+    });
+
+    expect(ranked).toEqual([]);
+  });
 });
 
 describe("calculatePastCustomerDiscount", () => {

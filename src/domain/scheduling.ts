@@ -108,6 +108,10 @@ function isWaitlistMatch(
     && localTime <= entry.latestStart;
 }
 
+function acceptsReplacementOffers(customer: Customer): boolean {
+  return customer.replacementOffersEnabled !== false;
+}
+
 export function rankRefillCandidates(input: RankCandidatesInput): RefillCandidate[] {
   const customerById = new Map(input.customers.map((candidate) => [candidate.id, candidate]));
   const attempted = new Set(input.job.attemptedCustomerIds);
@@ -131,6 +135,7 @@ export function rankRefillCandidates(input: RankCandidatesInput): RefillCandidat
       const customer = customerById.get(appointment.customerId);
       if (
         customer === undefined
+        || !acceptsReplacementOffers(customer)
         || !customer.earlierMoveConsent
         || attempted.has(customer.id)
         || selected.has(customer.id)
@@ -153,6 +158,7 @@ export function rankRefillCandidates(input: RankCandidatesInput): RefillCandidat
       const customer = customerById.get(entry.customerId);
       if (
         customer === undefined
+        || !acceptsReplacementOffers(customer)
         || attempted.has(customer.id)
         || selected.has(customer.id)
       ) continue;
@@ -175,6 +181,7 @@ export function rankRefillCandidates(input: RankCandidatesInput): RefillCandidat
         .map((appointment) => appointment.customerId),
     );
     const eligiblePastCustomers = input.customers
+      .filter(acceptsReplacementOffers)
       .filter((customer) => customer.pastCustomerOptIn)
       .filter((customer) => serviceCustomerIds.has(customer.id))
       .filter((customer) => !attempted.has(customer.id) && !selected.has(customer.id))
