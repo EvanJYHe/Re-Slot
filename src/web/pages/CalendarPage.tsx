@@ -48,8 +48,23 @@ function durationMinutes(startAt: string, endAt: string): number {
   return Math.max(0, DateTime.fromISO(endAt).diff(DateTime.fromISO(startAt), "minutes").minutes);
 }
 
+const CALENDAR_SCROLL_KEY = "revive:calendarScroll";
+
+function saveCalendarScroll(top: number): void {
+  try {
+    sessionStorage.setItem(CALENDAR_SCROLL_KEY, String(Math.round(top)));
+  } catch {
+    // sessionStorage may be unavailable (private mode / SSR); ignore.
+  }
+}
+
 function initialScrollTop(_starts: string[], _timezone: string): number {
-  return 0;
+  try {
+    const saved = sessionStorage.getItem(CALENDAR_SCROLL_KEY);
+    return saved === null ? 0 : Number(saved) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 function cardStyle(startAt: string, endAt: string, timezone: string, startMinutes: number): CSSProperties {
@@ -202,7 +217,12 @@ function DayCalendar({ calendar, date, barberFilter, onAppointment, onRefill }: 
           {barberFilter === "all" ? "All barbers" : barbers[0]?.name}
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-testid="calendar-scroll-region" ref={scrollRef}>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        data-testid="calendar-scroll-region"
+        onScroll={(event) => saveCalendarScroll(event.currentTarget.scrollTop)}
+        ref={scrollRef}
+      >
         <div
           className="grid"
           style={{ gridTemplateColumns: "72px minmax(0, 1fr)" }}
@@ -295,7 +315,12 @@ function WeekCalendar({ calendar, dates, barberFilter, onAppointment, onRefill }
           </div>
         ))}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-testid="calendar-scroll-region" ref={scrollRef}>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        data-testid="calendar-scroll-region"
+        onScroll={(event) => saveCalendarScroll(event.currentTarget.scrollTop)}
+        ref={scrollRef}
+      >
         <div className="grid" style={{ gridTemplateColumns: `72px repeat(${dates.length}, minmax(0, 1fr))` }}>
           <TimeRuler endHour={endHour} startHour={startHour} />
           {dates.map((date) => (
