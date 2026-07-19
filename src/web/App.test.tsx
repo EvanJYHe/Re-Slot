@@ -106,7 +106,7 @@ describe("DashboardApp shell", () => {
     expect(screen.getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Calendar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Sarah, Signature haircut/ })).toBeInTheDocument();
-    expect(screen.getByText("Live updates unavailable")).toBeInTheDocument();
+    expect(screen.queryByText(/Live updates/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/living chair board/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/disciplines/i)).not.toBeInTheDocument();
     expect(client.getCalendarRange).toHaveBeenCalledWith("2026-07-20", "2026-07-20");
@@ -150,7 +150,7 @@ describe("DashboardApp shell", () => {
     expect(screen.queryByRole("heading", { name: "Unlock operator workspace" })).not.toBeInTheDocument();
   });
 
-  it("reports SSE connection state and refetches authoritative calendar data", async () => {
+  it("refetches authoritative calendar data after an SSE domain event", async () => {
     const listeners = new Map<string, () => void>();
     const source: EventSourceLike = {
       addEventListener: (type, listener) => { listeners.set(type, listener); },
@@ -160,8 +160,7 @@ describe("DashboardApp shell", () => {
     render(<DashboardApp api={client} initialDate="2026-07-20" eventSourceFactory={() => source} />);
 
     await waitFor(() => expect(client.getCalendarRange).toHaveBeenCalledTimes(1));
-    listeners.get("open")?.();
-    expect(await screen.findByText("Live updates connected")).toBeInTheDocument();
+    expect(screen.queryByText(/Live updates/i)).not.toBeInTheDocument();
     listeners.get("domain")?.();
     await waitFor(() => expect(client.getCalendarRange).toHaveBeenCalledTimes(2));
   });

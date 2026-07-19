@@ -8,7 +8,7 @@ import {
   CustomersIcon,
   SettingsIcon,
 } from "./components/icons.js";
-import { StatusDot, cn } from "./components/ui.js";
+import { cn } from "./components/ui.js";
 import { periodRange, type CalendarView } from "./lib/dates.js";
 import { AgentPage } from "./pages/AgentPage.js";
 import { CalendarPage } from "./pages/CalendarPage.js";
@@ -54,7 +54,6 @@ export function DashboardApp({
   const [calendar, setCalendar] = useState<CalendarResponse>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const [connection, setConnection] = useState<"connecting" | "connected" | "reconnecting" | "unavailable">("connecting");
   const [domainVersion, setDomainVersion] = useState(0);
   const requestSequence = useRef(0);
   const range = useMemo(() => periodRange(anchorDate, calendarView), [anchorDate, calendarView]);
@@ -89,26 +88,13 @@ export function DashboardApp({
   useEffect(() => { void refreshCalendar(); }, [refreshCalendar]);
   useEffect(() => {
     const source = eventSourceFactory("/api/v1/events");
-    if (source === undefined) {
-      setConnection("unavailable");
-      return;
-    }
-    source.addEventListener("open", () => setConnection("connected"));
-    source.addEventListener("error", () => setConnection("reconnecting"));
+    if (source === undefined) return;
     source.addEventListener("domain", () => {
       setDomainVersion((version) => version + 1);
       void refreshCalendarRef.current();
     });
     return () => source.close();
   }, [eventSourceFactory]);
-
-  const connectionLabel = connection === "connected"
-    ? "Live updates connected"
-    : connection === "reconnecting"
-      ? "Live updates reconnecting"
-      : connection === "unavailable"
-        ? "Live updates unavailable"
-        : "Connecting live updates";
 
   return (
     <div className="min-h-screen bg-canvas text-ink">
@@ -136,10 +122,7 @@ export function DashboardApp({
             );
           })}
         </nav>
-        <div className="flex items-center gap-2 justify-self-end text-xs text-muted">
-          <StatusDot tone={connection === "connected" ? "healthy" : connection === "reconnecting" ? "warning" : "offline"} />
-          <span>{connectionLabel}</span>
-        </div>
+        <div aria-hidden="true" />
       </header>
       {error === undefined ? null : (
         <div className="border-b border-[#ead9b9] bg-amber-soft px-6 py-2.5 text-center text-sm text-[#7c5b22]">{error}</div>
