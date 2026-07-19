@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DateTime } from "luxon";
 
-import { Button, EmptyState, StatusDot, cn } from "../components/ui.js";
-import type { CustomerDetail, CustomerSummary, ReviveApi } from "../types.js";
+import { Button, EmptyState, cn } from "../components/ui.js";
+import type { CustomerBookingState, CustomerDetail, CustomerSummary, OperatorWaitlistEntry, ReviveApi } from "../types.js";
 
 interface CustomersPageProps {
   api: ReviveApi;
@@ -11,6 +11,49 @@ interface CustomersPageProps {
 
 function formatDate(value: string): string {
   return DateTime.fromISO(value).setZone("America/Toronto").toFormat("ccc, LLL d · h:mm a");
+}
+
+function formatVisitDate(value: string): string {
+  return DateTime.fromISO(value).setZone("America/Toronto").toFormat("LLL d, yyyy");
+}
+
+function formatWaitlistWindow(entry: OperatorWaitlistEntry): string {
+  const start = entry.earliestStart.includes("T")
+    ? DateTime.fromISO(entry.earliestStart).setZone("America/Toronto")
+    : DateTime.fromISO(`${entry.date}T${entry.earliestStart}`, { zone: "America/Toronto" });
+  const end = entry.latestStart.includes("T")
+    ? DateTime.fromISO(entry.latestStart).setZone("America/Toronto")
+    : DateTime.fromISO(`${entry.date}T${entry.latestStart}`, { zone: "America/Toronto" });
+  return `${start.toFormat("ccc, LLL d")} · ${start.toFormat("h:mm a")}–${end.toFormat("h:mm a")}`;
+}
+
+const stateStyles: Record<CustomerBookingState, string> = {
+  booked: "border-[#bed3c3] bg-[#e9f3ec] text-[#28543a]",
+  waitlisted: "border-[#e5d3ae] bg-[#fbf2df] text-[#74551f]",
+  outreach_ready: "border-[#c8d8cd] bg-white text-[#315b40]",
+  not_eligible: "border-line bg-[#f3f4f1] text-muted",
+};
+
+function BookingStateBadge({ state, label }: { state: CustomerBookingState; label: string }) {
+  return (
+    <span className={cn(
+      "inline-flex shrink-0 rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.08em]",
+      stateStyles[state],
+    )}>
+      {label}
+    </span>
+  );
+}
+
+function customerSchedulingLine(customer: CustomerSummary): string {
+  if (customer.bookingState === "booked") {
+    return `${formatDate(customer.nextAppointmentAt!)} · ${customer.nextServiceName} with ${customer.nextBarberName}`;
+  }
+  if (customer.bookingState === "waitlisted") return customer.waitlistRequestSummary ?? "Active scheduling request";
+  if (customer.lastVisitAt !== undefined) {
+    return `Last visit ${formatVisitDate(customer.lastVisitAt)} · ${customer.visitCount} ${customer.visitCount === 1 ? "visit" : "visits"}`;
+  }
+  return customer.bookingState === "outreach_ready" ? "Known customer · no upcoming booking" : "No active booking or request";
 }
 
 function CustomerList({ customers, selectedId, onSelect }: {
@@ -36,16 +79,10 @@ function CustomerList({ customers, selectedId, onSelect }: {
         >
           <span className="flex items-center justify-between gap-2">
             <strong className="text-sm font-semibold">{customer.name}</strong>
-            {customer.activeWaitlistCount > 0 ? (
-              <span className="rounded-full bg-amber-soft px-2 py-0.5 text-[9px] font-medium text-[#74551f]">WAITLIST</span>
-            ) : null}
+            <BookingStateBadge label={customer.bookingStateLabel} state={customer.bookingState} />
           </span>
-          <span className="mt-1.5 block text-xs text-muted">{customer.identitySummary}</span>
-          {customer.nextAppointmentAt === undefined ? null : (
-            <span className="mt-1 block truncate font-mono text-[9px] text-muted">
-              {formatDate(customer.nextAppointmentAt)} · {customer.nextBarberName}
-            </span>
-          )}
+          <span className="mt-1.5 block truncate text-[11px] leading-4 text-[#5f665f]">{customerSchedulingLine(customer)}</span>
+          <span className="mt-1 block text-[10px] text-muted">{customer.identitySummary}</span>
         </button>
       ))}
     </div>
@@ -163,6 +200,50 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
       </header>
       <div className="divide-y divide-line">
         <section className="px-5 py-5 lg:px-7">
+          <div className="rounded-xl border border-[#cbdacf] bg-[#f1f6f2] p-4 lg:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h4 className="text-base font-semibold">Booking context</h4>
+              </div>
+              <BookingStateBadge label={detail.relationship.bookingStateLabel} state={detail.relationship.bookingState} />
+            </div>
+            <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-[#d8e2da] bg-[#d8e2da] sm:grid-cols-2 xl:grid-cols-4">
+              <div className="bg-white px-3.5 py-3">
+                <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted">Current demand</dt>
+                <dd className="mt-1.5 text-sm font-medium">
+                  {detail.relationship.bookingState === "booked"
+                    ? `${detail.relationship.nextServiceName} · ${detail.relationship.nextBarberName}`
+                    : detail.relationship.bookingState === "waitlisted"
+                      ? detail.relationship.waitlistRequestSummary
+                      : "No active request"}
+                </dd>
+              </div>
+              <div className="bg-white px-3.5 py-3">
+                <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted">Relationship</dt>
+                <dd className="mt-1.5 text-sm font-medium">{detail.relationship.visitCount} {detail.relationship.visitCount === 1 ? "visit" : "visits"}</dd>
+                <span className="mt-0.5 block text-[11px] text-muted">
+                  {detail.relationship.lastVisitAt === undefined ? "No visit recorded" : `Last ${formatVisitDate(detail.relationship.lastVisitAt)}`}
+                </span>
+              </div>
+              <div className="bg-white px-3.5 py-3">
+                <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted">Usual booking</dt>
+                <dd className="mt-1.5 text-sm font-medium">
+                  {detail.relationship.usualServiceName === undefined
+                    ? "Still learning"
+                    : `${detail.relationship.usualServiceName} · ${detail.relationship.usualBarberName ?? "Any barber"}`}
+                </dd>
+              </div>
+              <div className="bg-white px-3.5 py-3">
+                <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted">Contact route</dt>
+                <dd className="mt-1.5 text-sm font-medium capitalize">{detail.preferences.contactPreference}</dd>
+                <span className="mt-0.5 block text-[11px] text-muted">
+                  {detail.relationship.outreachEligible ? "Eligible when an opening matches" : "Only for active scheduling needs"}
+                </span>
+              </div>
+            </dl>
+          </div>
+        </section>
+        <section className="px-5 py-5 lg:px-7">
           <h4 className="text-sm font-semibold">Preferences</h4>
           <div className="mt-2 max-w-2xl">
             <PreferenceToggle
@@ -204,7 +285,7 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
                     <strong className="block text-sm font-medium">{entry.serviceName} · {entry.barberName}</strong>
                     <span className="mt-1 block text-xs capitalize text-muted">{entry.status} · {entry.channel}</span>
                   </div>
-                  <time className="font-mono text-[10px] text-muted">{formatDate(entry.earliestStart)}</time>
+                  <time className="font-mono text-[10px] text-muted">{formatWaitlistWindow(entry)}</time>
                 </article>
               ))}
             </div>
@@ -244,6 +325,7 @@ function CustomerRecord({ api, detail, saving, onDetailChange, onSavingChange }:
 export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
   const [query, setQuery] = useState("");
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
+  const [filter, setFilter] = useState<"all" | CustomerBookingState>("all");
   const [selectedId, setSelectedId] = useState<string>();
   const [detail, setDetail] = useState<CustomerDetail>();
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -251,18 +333,42 @@ export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
 
   useEffect(() => {
     let active = true;
-    void api.getCustomers(query).then((results) => {
+    void api.getCustomers("").then((results) => {
       if (!active) return;
       setCustomers(results);
-      setSelectedId((current) => (
-        current !== undefined && results.some((customer) => customer.id === current)
-          ? current
-          : results[0]?.id
-      ));
       if (results.length === 0) setDetail(undefined);
     });
     return () => { active = false; };
-  }, [api, query, refreshKey]);
+  }, [api, refreshKey]);
+
+  const filteredCustomers = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const statePriority: Record<CustomerBookingState, number> = {
+      waitlisted: 0,
+      outreach_ready: 1,
+      booked: 2,
+      not_eligible: 3,
+    };
+    return customers
+      .filter((customer) => (
+        (filter === "all" || customer.bookingState === filter)
+        && customer.name.toLocaleLowerCase().includes(normalizedQuery)
+      ))
+      .sort((left, right) => (
+        statePriority[left.bookingState] - statePriority[right.bookingState]
+        || right.visitCount - left.visitCount
+        || left.name.localeCompare(right.name)
+      ));
+  }, [customers, filter, query]);
+
+  useEffect(() => {
+    setSelectedId((current) => (
+      current !== undefined && filteredCustomers.some((customer) => customer.id === current)
+        ? current
+        : filteredCustomers[0]?.id
+    ));
+    if (filteredCustomers.length === 0) setDetail(undefined);
+  }, [filteredCustomers]);
 
   useEffect(() => {
     if (selectedId === undefined) return;
@@ -276,15 +382,43 @@ export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
     return () => { active = false; };
   }, [api, refreshKey, selectedId]);
 
+  const funnel = [
+    { id: "all" as const, label: "All customers", value: customers.length },
+    { id: "booked" as const, label: "Booked", value: customers.filter((customer) => customer.bookingState === "booked").length },
+    { id: "waitlisted" as const, label: "Waitlisted", value: customers.filter((customer) => customer.bookingState === "waitlisted").length },
+    { id: "outreach_ready" as const, label: "Ready to contact", value: customers.filter((customer) => customer.bookingState === "outreach_ready").length },
+  ];
+
   return (
     <section>
       <div className="border-b border-line bg-panel px-5 py-4 lg:px-8">
-        <h2 className="text-xl font-semibold tracking-[-0.02em]">Customers</h2>
-        <p className="mt-1 text-sm text-muted">Contact preferences and the scheduling context REVIVE needs.</p>
+        <h2 className="text-xl font-semibold tracking-[-0.02em]">Customer intelligence</h2>
       </div>
       <div className="p-5 lg:p-8">
-        <div className="mx-auto grid min-h-[620px] max-w-7xl overflow-hidden rounded-xl border border-line bg-panel shadow-panel md:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="border-r border-line">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid overflow-hidden rounded-xl border border-line bg-panel shadow-panel sm:grid-cols-2 lg:grid-cols-4">
+            {funnel.map((item, index) => (
+              <button
+                aria-label={`${item.label} ${item.value}`}
+                aria-pressed={filter === item.id}
+                className={cn(
+                  "group min-h-24 border-line px-4 py-4 text-left transition-colors sm:px-5",
+                  index > 0 ? "border-t sm:border-t-0 sm:border-l" : "",
+                  index === 2 ? "sm:border-l-0 lg:border-l" : "",
+                  filter === item.id ? "bg-[#edf4ef]" : "bg-white hover:bg-[#f8faf7]",
+                )}
+                key={item.id}
+                onClick={() => setFilter(item.id)}
+                type="button"
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">{item.label}</span>
+                <strong className="mt-2 block text-3xl font-semibold tracking-[-0.05em]">{item.value}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mx-auto mt-4 grid min-h-[680px] max-w-7xl overflow-hidden rounded-xl border border-line bg-panel shadow-panel md:grid-cols-[340px_minmax(0,1fr)]">
+          <aside className="min-h-0 border-r border-line">
             <div className="border-b border-line p-4">
               <label className="sr-only" htmlFor="customer-search">Search customers</label>
               <input
@@ -295,8 +429,16 @@ export function CustomersPage({ api, refreshKey }: CustomersPageProps) {
                 role="searchbox"
                 value={query}
               />
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="text-xs text-muted">{filteredCustomers.length} customer{filteredCustomers.length === 1 ? "" : "s"}</span>
+                {filter === "all" ? null : (
+                  <button className="rounded-full border border-line px-2.5 py-1 text-xs font-medium text-revive-dark transition-colors hover:border-revive hover:bg-[#edf4ef]" onClick={() => setFilter("all")} type="button">Clear filter</button>
+                )}
+              </div>
             </div>
-            <CustomerList customers={customers} onSelect={setSelectedId} selectedId={selectedId} />
+            <div className="max-h-[600px] overflow-y-auto">
+              <CustomerList customers={filteredCustomers} onSelect={setSelectedId} selectedId={selectedId} />
+            </div>
           </aside>
           {loadingDetail ? (
             <div className="m-6 animate-pulse rounded-xl bg-[#f1f3f0]" />

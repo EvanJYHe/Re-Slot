@@ -116,6 +116,32 @@ Open the generated Josh link on Josh's Telegram account and the Alex link on Ale
 5. Put the same strong webhook secret in ElevenLabs and `ELEVENLABS_WEBHOOK_SECRET`, and set Sarah's E.164 demo number in `SARAH_PHONE`.
 6. Leave call recording disabled. REVIVE also sends `call_recording_enabled: false` on every outbound request.
 
+For live localhost scheduling, start an HTTPS tunnel to the Fastify port, put its URL in
+`PUBLIC_BASE_URL`, and update the agent's scheduling tools:
+
+```bash
+ngrok http 3100
+npm run setup:elevenlabs
+```
+
+The setup command repoints the existing ElevenLabs tools to the temporary tunnel and gives the
+agent an availability-first booking flow. Keep the local server and tunnel running during calls.
+To place a recording-disabled demo call with a signed customer identity:
+
+```bash
+DESTINATION_PHONE=+1XXXXXXXXXX npm run demo:call
+```
+
+Recording stays off by default. Enable it only with the caller's explicit consent:
+
+```bash
+CALL_RECORDING_ENABLED=true DESTINATION_PHONE=+1XXXXXXXXXX npm run demo:call
+```
+
+The agent asks for the service, date, preferred time range, and barber preference one question at
+a time. It reads live slots and creates an appointment only after the caller confirms the exact
+service, barber, date, and time.
+
 Inbound calls are resolved from the authenticated caller number. Tool requests carry a short-lived, signed actor token in a secret dynamic variable; model-supplied customer IDs are ignored. Decline, no-answer, and initiation failures safely advance the persisted refill job.
 
 ## Atlas

@@ -53,7 +53,9 @@ describe("SchedulingToolbox", () => {
       { provider: "telegram", customerId: "sarah" },
     );
     expect(appointments).toMatchObject({
-      appointments: [expect.objectContaining({ id: "sarah-appt", customerName: "Sarah" })],
+      appointments: expect.arrayContaining([
+        expect.objectContaining({ id: "sarah-appt", customerName: "Sarah" }),
+      ]),
     });
 
     const proposed = await toolbox.execute(
@@ -93,5 +95,40 @@ describe("SchedulingToolbox", () => {
       { provider: "telegram", customerId: "alex" },
     );
     expect(shop).toMatchObject({ timezone, hours: "Monday to Friday, 10 AM to 8 PM" });
+    expect(shop).toMatchObject({
+      barbers: expect.arrayContaining([
+        { id: "devon", name: "Devon", serviceIds: ["haircut", "beard"] },
+      ]),
+    });
+  });
+
+  it("resolves spoken barber names and close transcription matches instead of returning false zero availability", async () => {
+    const store = new InMemoryStore(createDemoState({ now, timezone }));
+    const toolbox = new SchedulingToolbox(store, new ReviveEngine(store), () => now);
+
+    const jeremy = await toolbox.execute(
+      "get_availability",
+      { date: "2026-07-20", service_id: "fade", barber_id: "Jeremy", include_alternates: false },
+      { provider: "elevenlabs", customerId: "sarah" },
+    );
+    expect(jeremy).toMatchObject({
+      slots: expect.arrayContaining([expect.objectContaining({ barberId: "jeremy" })]),
+    });
+
+    const devin = await toolbox.execute(
+      "get_availability",
+      { date: "2026-07-20", service_id: "haircut", barber_id: "Devin", include_alternates: false },
+      { provider: "elevenlabs", customerId: "sarah" },
+    );
+    expect(devin).toMatchObject({
+      slots: expect.arrayContaining([expect.objectContaining({ barberId: "devon" })]),
+    });
+
+    const unknown = await toolbox.execute(
+      "get_availability",
+      { date: "2026-07-20", service_id: "haircut", barber_id: "Nobody", include_alternates: false },
+      { provider: "elevenlabs", customerId: "sarah" },
+    );
+    expect(unknown).toMatchObject({ type: "error", code: "NOT_FOUND" });
   });
 });

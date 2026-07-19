@@ -191,7 +191,9 @@ describe("AgentPage", () => {
     const question = screen.getByText("Is the haircut still forty-five dollars?");
     const answer = screen.getByText("Yes — the signature haircut is $45.");
     expect(question.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText("REVIVE checked Jeremy's live availability.")).toBeInTheDocument();
+    const ledgerAction = screen.getByText("REVIVE checked Jeremy's live availability.");
+    expect(ledgerAction).toHaveClass("justify-self-center", "text-center");
+    expect(ledgerAction.parentElement).toHaveClass("grid-cols-[1fr_auto_1fr]", "items-center");
     expect(screen.queryByText(/never render this JSON/i)).not.toBeInTheDocument();
 
     const context = screen.getByRole("complementary", { name: "Context" });

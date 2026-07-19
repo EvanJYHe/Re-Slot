@@ -601,7 +601,6 @@ export function CalendarPage({
   anchorDate,
   view,
   barberFilter,
-  loading,
   onAnchorDateChange,
   onViewChange,
   onBarberFilterChange,
@@ -651,9 +650,8 @@ export function CalendarPage({
         <aside className="min-h-0 border-r border-line bg-[#fafbf9] px-4 py-5">
           <MiniMonth anchorDate={anchorDate} onSelect={selectMonthDate} />
           <div className="mt-6 border-t border-line pt-5">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex items-center">
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Barbers</span>
-              {loading ? <span className="font-mono text-[9px] text-muted">Syncing</span> : null}
             </div>
             <div className="space-y-1">
               {[{ id: "all", name: "All barbers" }, ...(calendar?.barbers ?? [])].map((barber) => (

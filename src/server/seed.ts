@@ -87,7 +87,30 @@ const additionalCustomerSeeds = [
   ["owen", "Owen"],
   ["zoe", "Zoe"],
   ["leo", "Leo"],
+  ["aiden", "Aiden"],
+  ["chloe", "Chloe"],
+  ["gabriel", "Gabriel"],
+  ["grace", "Grace"],
+  ["isaac", "Isaac"],
+  ["hannah", "Hannah"],
+  ["julian", "Julian"],
+  ["nora", "Nora"],
+  ["samuel", "Samuel"],
+  ["victoria", "Victoria"],
+  ["wyatt", "Wyatt"],
+  ["aria", "Aria"],
+  ["caleb", "Caleb"],
+  ["ruby", "Ruby"],
+  ["nathan", "Nathan"],
+  ["stella", "Stella"],
+  ["adrian", "Adrian"],
+  ["claire", "Claire"],
 ] as const;
+
+const currentBookingCustomerIds = new Set([
+  "olivia", "liam", "emma", "noah", "ava", "ethan", "mia", "lucas", "sophia", "mason",
+  "isabella", "logan", "amelia", "benjamin", "harper", "jacob", "evelyn", "daniel", "charlotte", "henry",
+]);
 
 function appointmentsOverlap(startAt: string, endAt: string, appointment: Appointment): boolean {
   return appointment.status === "confirmed"
@@ -105,7 +128,7 @@ function fillBusyWeek(input: {
   now: string;
 }): void {
   const denseCustomers = input.customers.filter((customer) => (
-    additionalCustomerSeeds.some(([id]) => id === customer.id)
+    currentBookingCustomerIds.has(customer.id)
   ));
   const serviceById = new Map(input.services.map((service) => [service.id, service]));
   const preferredStarts = [
@@ -175,6 +198,7 @@ function fillBusyWeek(input: {
 
       for (const startMinute of preferredStarts) {
         if (bookedMinutes >= targetMinutes) break;
+        if (date === input.demoDate && barber.id === "jeremy" && startMinute === 19 * 60) continue;
         const remainingMinutes = targetMinutes - bookedMinutes;
         const service = remainingMinutes >= 60
           ? hourServices[serviceCursor % hourServices.length]
@@ -207,6 +231,47 @@ function fillBusyWeek(input: {
       }
     }
   }
+}
+
+function addRecurringCustomerHistory(input: {
+  appointments: Appointment[];
+  customers: Customer[];
+  barbers: Barber[];
+  services: Service[];
+  demoDate: string;
+  timezone: string;
+}): void {
+  const visitTimes = [10, 11, 13, 14, 16, 17, 18, 19];
+  const serviceById = new Map(input.services.map((service) => [service.id, service]));
+
+  input.customers.forEach((customer, customerIndex) => {
+    if (customerIndex >= input.customers.length - 5) return;
+    const visitCount = customerIndex % 6 === 0 ? 2 : 3 + (customerIndex % 3);
+    const dayOffset = Math.floor(customerIndex / 24);
+    const slotWithinDay = customerIndex % 24;
+    const barber = input.barbers[Math.floor(slotWithinDay / visitTimes.length)]!;
+    const hour = visitTimes[slotWithinDay % visitTimes.length]!;
+    const supportedServices = barber.serviceIds.map((serviceId) => serviceById.get(serviceId)!);
+    const service = supportedServices[customerIndex % supportedServices.length]!;
+
+    for (let visitIndex = 0; visitIndex < visitCount; visitIndex += 1) {
+      const visitDate = DateTime.fromISO(input.demoDate, { zone: input.timezone })
+        .minus({ weeks: visitIndex + 2 })
+        .plus({ days: dayOffset })
+        .toISODate()!;
+      const startAt = at(visitDate, hour, 0, input.timezone);
+      const bookedAt = DateTime.fromISO(startAt).minus({ days: 8 }).toUTC().toISO()!;
+      const appointment = seededAppointment(
+        `history-${customer.id}-${visitIndex + 1}`,
+        customer.id,
+        barber.id,
+        service,
+        startAt,
+        bookedAt,
+      );
+      input.appointments.push(appointment);
+    }
+  });
 }
 
 function seededAppointment(
@@ -674,9 +739,12 @@ export function createDemoState(options: CreateDemoStateOptions): ReviveState {
       id,
       name,
       contactPreference: index % 4 === 0 ? "voice" : "telegram",
-      earlierMoveConsent: false,
+      ...(index % 4 === 0
+        ? { phone: `+1416555${String(1000 + index).padStart(4, "0")}` }
+        : { telegramChatId: `900000${String(1000 + index)}` }),
+      earlierMoveConsent: index % 5 === 0,
       flexibleBarberPreference: index % 3 === 0,
-      pastCustomerOptIn: false,
+      pastCustomerOptIn: !currentBookingCustomerIds.has(id) && index % 4 !== 0,
     })),
   ];
   const appointments: Appointment[] = [
@@ -720,6 +788,14 @@ export function createDemoState(options: CreateDemoStateOptions): ReviveState {
     demoDate,
     timezone: options.timezone,
     now: options.now,
+  });
+  addRecurringCustomerHistory({
+    appointments,
+    customers,
+    barbers,
+    services,
+    demoDate,
+    timezone: options.timezone,
   });
   const agentSeed = createAgentConversationSeed({
     now: options.now,
@@ -780,6 +856,31 @@ export function createDemoState(options: CreateDemoStateOptions): ReviveState {
         status: "active",
         operatorNote: "Afternoons are easiest; a short-notice call is okay.",
         createdAt: DateTime.fromISO(options.now).minus({ minutes: 18 }).toUTC().toISO()!,
+        updatedAt: options.now,
+      },
+      {
+        id: "gabriel-waitlist",
+        customerId: "gabriel",
+        serviceId: fade.id,
+        barberId: "maya",
+        date: operationalDate(2),
+        earliestStart: "12:00",
+        latestStart: "16:00",
+        status: "active",
+        operatorNote: "Prefers Maya; available over lunch or mid-afternoon.",
+        createdAt: DateTime.fromISO(options.now).minus({ hours: 3 }).toUTC().toISO()!,
+        updatedAt: options.now,
+      },
+      {
+        id: "nora-waitlist",
+        customerId: "nora",
+        serviceId: haircut.id,
+        date: operationalDate(4),
+        earliestStart: "17:00",
+        latestStart: "19:30",
+        status: "active",
+        operatorNote: "Any barber after work; Telegram is fastest.",
+        createdAt: DateTime.fromISO(options.now).minus({ hours: 2 }).toUTC().toISO()!,
         updatedAt: options.now,
       },
     ],

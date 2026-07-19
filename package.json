@@ -16,7 +16,9 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run test:run && npm run build",
     "setup:backboard": "node --env-file=.env scripts/configure-backboard.mjs",
+    "setup:elevenlabs": "node --env-file=.env scripts/configure-elevenlabs.mjs",
     "setup:telegram": "node --env-file=.env scripts/register-telegram-webhook.mjs",
+    "demo:call": "node --env-file=.env scripts/call-elevenlabs-demo.mjs",
     "demo:links": "node --env-file=.env scripts/telegram-demo-links.mjs"
   },
   "dependencies": {

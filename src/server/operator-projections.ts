@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+
 import type { ReviveState } from "../domain/store.js";
 import type { Appointment, CalendarEvent, ConversationEvent, WaitlistEntry } from "../domain/types.js";
 
@@ -71,14 +73,111 @@ function projectWaitlistEntry(state: ReviveState, entry: WaitlistEntry) {
   };
 }
 
+function projectionReferenceTime(state: ReviveState): DateTime {
+  const lastReset = state.events
+    .filter((event) => event.type === "demo.reset")
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))[0];
+  const reference = DateTime.fromISO(lastReset?.occurredAt ?? "").toUTC();
+  return reference.isValid ? reference : DateTime.utc();
+}
+
+function mostFrequentName(ids: string[], resolveName: (id: string) => string): string | undefined {
+  if (ids.length === 0) return undefined;
+  const counts = new Map<string, number>();
+  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const mostFrequentId = [...counts.entries()]
+    .sort((left, right) => right[1] - left[1])[0]?.[0];
+  return mostFrequentId === undefined ? undefined : resolveName(mostFrequentId);
+}
+
+function waitlistTime(entry: WaitlistEntry, value: string, timezone: string): DateTime {
+  return value.includes("T")
+    ? DateTime.fromISO(value).setZone(timezone)
+    : DateTime.fromISO(`${entry.date}T${value}`, { zone: timezone });
+}
+
+function summarizeWaitlist(state: ReviveState, entry: WaitlistEntry): string {
+  const timezone = state.settings.timezone;
+  const earliest = waitlistTime(entry, entry.earliestStart, timezone);
+  const latest = waitlistTime(entry, entry.latestStart, timezone);
+  const dateLabel = earliest.isValid ? earliest.toFormat("ccc, LLL d") : entry.date;
+  const timeLabel = earliest.isValid && latest.isValid
+    ? `${earliest.toFormat("h:mm a")}–${latest.toFormat("h:mm a")}`
+    : `${entry.earliestStart}–${entry.latestStart}`;
+  return `${serviceName(state, entry.serviceId)} · ${barberName(state, entry.barberId)} · ${dateLabel}, ${timeLabel}`;
+}
+
+function deriveCustomerIntelligence(state: ReviveState, customerId: string) {
+  const customer = state.customers.find((candidate) => candidate.id === customerId)!;
+  const referenceTime = projectionReferenceTime(state);
+  const confirmed = state.appointments.filter((appointment) => (
+    appointment.customerId === customerId && appointment.status === "confirmed"
+  ));
+  const upcoming = confirmed
+    .filter((appointment) => DateTime.fromISO(appointment.startAt).toUTC() >= referenceTime)
+    .sort((left, right) => left.startAt.localeCompare(right.startAt));
+  const past = confirmed
+    .filter((appointment) => DateTime.fromISO(appointment.startAt).toUTC() < referenceTime)
+    .sort((left, right) => right.startAt.localeCompare(left.startAt));
+  const activeWaitlist = state.waitlist
+    .filter((entry) => (
+      entry.customerId === customerId && ["active", "paused", "offered"].includes(entry.status)
+    ))
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  const nextAppointment = upcoming[0];
+  const currentWaitlist = activeWaitlist[0];
+  const bookingState = nextAppointment !== undefined
+    ? "booked" as const
+    : currentWaitlist !== undefined
+      ? "waitlisted" as const
+      : customer.pastCustomerOptIn
+        ? "outreach_ready" as const
+        : "not_eligible" as const;
+  const bookingStateLabel = bookingState === "booked"
+    ? "Booked"
+    : bookingState === "waitlisted"
+      ? "Waitlisted"
+      : bookingState === "outreach_ready"
+        ? "Ready to contact"
+        : "Not eligible";
+  const usualServiceName = mostFrequentName(past.map((appointment) => appointment.serviceId), (id) => serviceName(state, id));
+  const usualBarberName = mostFrequentName(past.map((appointment) => appointment.barberId), (id) => barberName(state, id));
+  const matchReason = bookingState === "booked"
+    ? `Already confirmed for ${serviceName(state, nextAppointment!.serviceId)} with ${barberName(state, nextAppointment!.barberId)}.`
+    : bookingState === "waitlisted"
+      ? `Actively waiting for ${serviceName(state, currentWaitlist!.serviceId)} in a preferred time window.`
+      : bookingState === "outreach_ready" && past.length > 0
+        ? `Returning ${usualServiceName ?? "service"} customer · ${past.length} ${past.length === 1 ? "visit" : "visits"} · outreach allowed.`
+        : bookingState === "outreach_ready"
+          ? "Known customer with no upcoming booking · outreach allowed."
+          : "No upcoming booking · automated outreach is off.";
+
+  return {
+    bookingState,
+    bookingStateLabel,
+    activeWaitlistCount: activeWaitlist.length,
+    visitCount: past.length,
+    outreachEligible: bookingState === "outreach_ready",
+    matchReason,
+    ...(nextAppointment === undefined ? {} : {
+      nextAppointmentAt: nextAppointment.startAt,
+      nextBarberName: barberName(state, nextAppointment.barberId),
+      nextServiceName: serviceName(state, nextAppointment.serviceId),
+    }),
+    ...(currentWaitlist === undefined ? {} : {
+      waitlistRequestSummary: summarizeWaitlist(state, currentWaitlist),
+    }),
+    ...(past[0] === undefined ? {} : { lastVisitAt: past[0].startAt }),
+    ...(usualServiceName === undefined ? {} : { usualServiceName }),
+    ...(usualBarberName === undefined ? {} : { usualBarberName }),
+  };
+}
+
 export function projectCustomerList(state: ReviveState, query = "") {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   return state.customers
     .filter((customer) => customer.name.toLocaleLowerCase().includes(normalizedQuery))
     .map((customer) => {
-      const nextAppointment = state.appointments
-        .filter((appointment) => appointment.customerId === customer.id && appointment.status === "confirmed")
-        .sort((left, right) => left.startAt.localeCompare(right.startAt))[0];
       const linkedPreferredChannel = customer.contactPreference === "telegram"
         ? customer.telegramChatId !== undefined
         : customer.phone !== undefined;
@@ -89,13 +188,7 @@ export function projectCustomerList(state: ReviveState, query = "") {
         identitySummary: linkedPreferredChannel
           ? customer.contactPreference === "telegram" ? "Telegram linked" : "Phone linked"
           : "No linked channel",
-        activeWaitlistCount: state.waitlist.filter((entry) => (
-          entry.customerId === customer.id && ["active", "paused", "offered"].includes(entry.status)
-        )).length,
-        ...(nextAppointment === undefined ? {} : {
-          nextAppointmentAt: nextAppointment.startAt,
-          nextBarberName: barberName(state, nextAppointment.barberId),
-        }),
+        ...deriveCustomerIntelligence(state, customer.id),
       };
     })
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -117,6 +210,7 @@ export function projectCustomerDetail(state: ReviveState, customerId: string) {
       flexibleBarberPreference: customer.flexibleBarberPreference,
       pastCustomerOptIn: customer.pastCustomerOptIn,
     },
+    relationship: deriveCustomerIntelligence(state, customer.id),
     appointments: state.appointments
       .filter((appointment) => appointment.customerId === customer.id)
       .map((appointment) => projectAppointment(state, appointment))

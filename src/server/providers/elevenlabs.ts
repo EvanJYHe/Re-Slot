@@ -88,6 +88,9 @@ const postCallSchema = z.object({
   }).passthrough(),
 }).passthrough();
 
+const AVAILABILITY_FIRST_GREETING =
+  "I can help you find and book an appointment. What day and time are you available?";
+
 interface ElevenLabsWebhookServiceOptions {
   store: ReviveStore;
   engine: ReviveEngine;
@@ -125,7 +128,7 @@ export class ElevenLabsWebhookService {
           timezone: state.settings.timezone,
           secret__actor_token: token,
           offer_id: "",
-          offer_message: "Thanks for calling REVIVE. How can I help with your appointment?",
+          offer_message: AVAILABILITY_FIRST_GREETING,
           barber_name: "",
           service_name: "",
           old_time: "",
@@ -162,7 +165,7 @@ export class ElevenLabsWebhookService {
         timezone: state.settings.timezone,
         secret__actor_token: token,
         offer_id: activeOffer?.id ?? "",
-        offer_message: "Thanks for calling REVIVE. How can I help with your appointment?",
+        offer_message: AVAILABILITY_FIRST_GREETING,
         barber_name: "",
         service_name: "",
         old_time: "",
@@ -174,13 +177,16 @@ export class ElevenLabsWebhookService {
   }
 
   async executeTool(name: string, input: unknown, authorization: string | undefined): Promise<unknown> {
-    if (authorization === undefined || !authorization.startsWith("Bearer ")) {
+    const token = authorization?.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length)
+      : authorization;
+    if (token === undefined || token === "") {
       return { type: "error", code: "UNAUTHORIZED", message: "The voice request was not authenticated." };
     }
     let actor: VoiceActorPayload;
     try {
       actor = verifyVoiceActorToken(
-        authorization.slice("Bearer ".length),
+        token,
         this.options.webhookSecret,
         this.clock(),
       );

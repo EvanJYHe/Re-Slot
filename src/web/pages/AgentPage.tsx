@@ -74,10 +74,10 @@ function MessageEvent({ event }: { event: ConversationEvent }) {
 function LedgerEvent({ event }: { event: ConversationEvent }) {
   const warning = event.kind === "error" || event.deliveryState === "failed";
   return (
-    <div className="grid grid-cols-[12px_1fr_auto] items-start gap-2 rounded-revive border border-line bg-[#fafbf9] px-3 py-2.5 text-xs">
-      <span className={cn("mt-1 h-1.5 w-1.5 rounded-full", warning ? "bg-amber" : "bg-revive")} />
-      <span className="leading-5 text-muted">{event.text}</span>
-      <time className="font-mono text-[9px] text-muted">{timestamp(event.occurredAt)}</time>
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-revive border border-line bg-[#fafbf9] px-3 py-2.5 text-xs">
+      <span className={cn("h-1.5 w-1.5 justify-self-start rounded-full", warning ? "bg-amber" : "bg-revive")} />
+      <span className="justify-self-center text-center leading-5 text-muted">{event.text}</span>
+      <time className="justify-self-end font-mono text-[9px] text-muted">{timestamp(event.occurredAt)}</time>
     </div>
   );
 }

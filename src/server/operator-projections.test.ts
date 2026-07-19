@@ -85,6 +85,70 @@ async function populatedState() {
 }
 
 describe("operator projections", () => {
+  it("derives the customer booking pool and recurring relationship facts", async () => {
+    const state = await populatedState();
+    const olivia = state.customers.find((customer) => customer.id === "olivia")!;
+    olivia.pastCustomerOptIn = true;
+    state.appointments = state.appointments.filter((appointment) => appointment.customerId !== "olivia");
+    const historyTemplate = state.appointments.find((appointment) => appointment.id === "demo-zoe-booked-appt")!;
+    state.appointments.push(
+      {
+        ...structuredClone(historyTemplate),
+        id: "olivia-visit-one",
+        customerId: "olivia",
+        startAt: "2026-05-15T18:00:00.000Z",
+        endAt: "2026-05-15T19:00:00.000Z",
+      },
+      {
+        ...structuredClone(historyTemplate),
+        id: "olivia-visit-two",
+        customerId: "olivia",
+        startAt: "2026-06-19T18:00:00.000Z",
+        endAt: "2026-06-19T19:00:00.000Z",
+      },
+    );
+
+    const list = projectCustomerList(state);
+    const sarah = list.find((customer) => customer.id === "sarah");
+    const alex = list.find((customer) => customer.id === "alex");
+    const returning = list.find((customer) => customer.id === "olivia");
+    const detail = projectCustomerDetail(state, "olivia");
+
+    expect(sarah).toMatchObject({
+      bookingState: "booked",
+      bookingStateLabel: "Booked",
+      nextAppointmentAt: "2026-07-20T22:00:00.000Z",
+      nextBarberName: "Jeremy",
+      nextServiceName: "Signature haircut",
+      outreachEligible: false,
+    });
+    expect(alex).toMatchObject({
+      bookingState: "waitlisted",
+      bookingStateLabel: "Waitlisted",
+      activeWaitlistCount: 1,
+      waitlistRequestSummary: expect.stringContaining("Signature haircut"),
+      outreachEligible: false,
+    });
+    expect(returning).toMatchObject({
+      bookingState: "outreach_ready",
+      bookingStateLabel: "Ready to contact",
+      lastVisitAt: "2026-06-19T18:00:00.000Z",
+      visitCount: 2,
+      usualServiceName: "Signature haircut",
+      usualBarberName: "Maya",
+      outreachEligible: true,
+      matchReason: expect.stringContaining("2 visits"),
+    });
+    expect(detail?.relationship).toMatchObject({
+      bookingState: "outreach_ready",
+      lastVisitAt: "2026-06-19T18:00:00.000Z",
+      visitCount: 2,
+      usualServiceName: "Signature haircut",
+      usualBarberName: "Maya",
+      outreachEligible: true,
+    });
+  });
+
   it("projects searchable customer summaries and a masked operational detail", async () => {
     const state = await populatedState();
     const list = projectCustomerList(state, "sar");

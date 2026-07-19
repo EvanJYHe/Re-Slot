@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ReviveEngine } from "../../domain/engine.js";
 import { findAvailableSlots } from "../../domain/scheduling.js";
 import type { ReviveStore } from "../../domain/store.js";
-import type { ActorContext } from "../../domain/types.js";
+import type { ActorContext, Barber } from "../../domain/types.js";
 import type { ToolDefinition } from "./backboard.js";
 
 const availabilitySchema = z.object({
@@ -36,6 +36,46 @@ const shopInfoSchema = z.object({
   topic: z.enum(["hours", "location", "services", "policies", "all"]),
 }).strict();
 
+function normalizedLabel(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function editDistance(left: string, right: string): number {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1]! + 1,
+        previous[rightIndex]! + 1,
+        previous[rightIndex - 1]! + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1),
+      );
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[right.length]!;
+}
+
+function resolveBarber(barbers: Barber[], supplied: string): Barber | undefined {
+  const label = normalizedLabel(supplied);
+  const exact = barbers.find((barber) => (
+    normalizedLabel(barber.id) === label || normalizedLabel(barber.name) === label
+  ));
+  if (exact !== undefined) return exact;
+  const nearby = barbers
+    .map((barber) => ({
+      barber,
+      distance: Math.min(
+        editDistance(label, normalizedLabel(barber.id)),
+        editDistance(label, normalizedLabel(barber.name)),
+      ),
+    }))
+    .filter((candidate) => candidate.distance <= 1)
+    .sort((left, right) => left.distance - right.distance);
+  if (nearby.length === 0 || nearby[1]?.distance === nearby[0]?.distance) return undefined;
+  return nearby[0]?.barber;
+}
+
 export class SchedulingToolbox {
   readonly definitions: ToolDefinition[] = [
     {
@@ -48,7 +88,7 @@ export class SchedulingToolbox {
           properties: {
             date: { type: "string", description: "Local shop date in YYYY-MM-DD format." },
             service_id: { type: "string", description: "Service identifier returned by shop information." },
-            barber_id: { type: "string", description: "Requested barber identifier, if any." },
+            barber_id: { type: "string", description: "Requested barber identifier from get_shop_info, if any. Spoken barber names are also accepted." },
             include_alternates: { type: "boolean", description: "Whether qualified alternate barbers may be returned." },
           },
           required: ["date", "service_id", "include_alternates"],
@@ -231,13 +271,24 @@ export class SchedulingToolbox {
     if (service === undefined) {
       return { type: "error", code: "NOT_FOUND", message: "That service was not found." };
     }
+    const requestedBarber = input.barber_id === undefined
+      ? undefined
+      : resolveBarber(state.barbers, input.barber_id);
+    if (input.barber_id !== undefined && requestedBarber === undefined) {
+      return {
+        type: "error",
+        code: "NOT_FOUND",
+        message: "That barber was not found. Use one of the listed barber identifiers.",
+        barbers: state.barbers.map((barber) => ({ id: barber.id, name: barber.name })),
+      };
+    }
     const slots = findAvailableSlots({
       date: input.date,
       timezone: state.settings.timezone,
       service,
       barbers: state.barbers,
       appointments: state.appointments,
-      ...(input.barber_id === undefined ? {} : { requestedBarberId: input.barber_id }),
+      ...(requestedBarber === undefined ? {} : { requestedBarberId: requestedBarber.id }),
       includeAlternates: input.include_alternates && state.settings.allowAlternateBarbers,
     }).map((slot) => ({
       ...slot,
@@ -260,6 +311,11 @@ export class SchedulingToolbox {
         name: service.name,
         durationMinutes: service.durationMinutes,
         price: `$${(service.priceCents / 100).toFixed(0)}`,
+      })),
+      barbers: state.barbers.map((barber) => ({
+        id: barber.id,
+        name: barber.name,
+        serviceIds: barber.serviceIds,
       })),
       policies: {
         earlierMovesRequireOptIn: true,

@@ -101,7 +101,7 @@ describe("ElevenLabsWebhookService", () => {
         timezone,
         secret__actor_token: expect.any(String),
         offer_id: "",
-        offer_message: "Thanks for calling REVIVE. How can I help with your appointment?",
+        offer_message: "I can help you find and book an appointment. What day and time are you available?",
         barber_name: "",
         service_name: "",
         old_time: "",
@@ -119,6 +119,11 @@ describe("ElevenLabsWebhookService", () => {
     expect(result).toMatchObject({ type: "error" });
     expect((await store.read()).appointments.find((appointment) => appointment.id === "josh-appt")?.status)
       .toBe("confirmed");
+
+    await expect(service.executeTool("get_my_appointments", {}, token))
+      .resolves.toMatchObject({
+        appointments: [expect.objectContaining({ id: "sarah-appt" })],
+      });
   });
 
   it("verifies HMAC post-call failures, deduplicates them, and advances an active offer", async () => {

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CustomersPage } from "./CustomersPage.js";
 import type {
+  CalendarAppointment,
   CustomerDetail,
   CustomerSummary,
   ReviveApi,
@@ -31,6 +32,15 @@ const summaries: CustomerSummary[] = [
     contactPreference: "telegram",
     identitySummary: "Telegram linked",
     activeWaitlistCount: 1,
+    bookingState: "waitlisted",
+    bookingStateLabel: "Waitlisted",
+    visitCount: 5,
+    outreachEligible: false,
+    matchReason: "Actively waiting for Signature haircut in a preferred time window.",
+    waitlistRequestSummary: "Signature haircut · Jeremy · Mon, Jul 20, 5:00 PM–7:00 PM",
+    lastVisitAt: "2026-06-12T18:00:00.000Z",
+    usualServiceName: "Signature haircut",
+    usualBarberName: "Jeremy",
   },
   {
     id: "sarah",
@@ -38,16 +48,71 @@ const summaries: CustomerSummary[] = [
     contactPreference: "voice",
     identitySummary: "Phone linked",
     activeWaitlistCount: 0,
+    bookingState: "booked",
+    bookingStateLabel: "Booked",
+    visitCount: 7,
+    outreachEligible: false,
+    matchReason: "Already confirmed for Signature haircut with Jeremy.",
     nextAppointmentAt: "2026-07-20T22:00:00.000Z",
     nextBarberName: "Jeremy",
+    nextServiceName: "Signature haircut",
+    lastVisitAt: "2026-06-19T18:00:00.000Z",
+    usualServiceName: "Signature haircut",
+    usualBarberName: "Jeremy",
+  },
+  {
+    id: "olivia",
+    name: "Olivia",
+    contactPreference: "voice",
+    identitySummary: "Phone linked",
+    activeWaitlistCount: 0,
+    bookingState: "outreach_ready",
+    bookingStateLabel: "Ready to contact",
+    visitCount: 4,
+    outreachEligible: true,
+    matchReason: "Returning Signature haircut customer · 4 visits · outreach allowed.",
+    lastVisitAt: "2026-06-22T18:00:00.000Z",
+    usualServiceName: "Signature haircut",
+    usualBarberName: "Maya",
+  },
+  {
+    id: "zoe",
+    name: "Zoe",
+    contactPreference: "telegram",
+    identitySummary: "Telegram linked",
+    activeWaitlistCount: 0,
+    bookingState: "not_eligible",
+    bookingStateLabel: "Not eligible",
+    visitCount: 2,
+    outreachEligible: false,
+    matchReason: "No upcoming booking · automated outreach is off.",
+    lastVisitAt: "2026-06-30T18:00:00.000Z",
+    usualServiceName: "Skin fade",
+    usualBarberName: "Maya",
   },
 ];
 
 function customer(id: string): CustomerDetail {
   const sarah = id === "sarah";
+  const summary = summaries.find((candidate) => candidate.id === id)!;
+  const upcoming: CalendarAppointment[] = sarah ? [{
+    id: `${id}-future`,
+    customerId: id,
+    customerName: summary.name,
+    barberId: "jeremy",
+    barberName: "Jeremy",
+    serviceId: "haircut",
+    serviceName: "Signature haircut",
+    startAt: "2026-07-20T22:00:00.000Z",
+    endAt: "2026-07-20T23:00:00.000Z",
+    status: "confirmed",
+    discountPercent: 0,
+    version: 1,
+    history: [],
+  }] : [];
   return {
     id,
-    name: sarah ? "Sarah" : "Alex",
+    name: summary.name,
     identities: sarah
       ? { telegram: "Not linked", phone: "••• ••• 0101" }
       : { telegram: "Linked account", phone: "Not linked" },
@@ -57,26 +122,27 @@ function customer(id: string): CustomerDetail {
       flexibleBarberPreference: false,
       pastCustomerOptIn: sarah,
     },
+    relationship: {
+      bookingState: summary.bookingState,
+      bookingStateLabel: summary.bookingStateLabel,
+      activeWaitlistCount: summary.activeWaitlistCount,
+      visitCount: summary.visitCount,
+      outreachEligible: summary.outreachEligible,
+      matchReason: summary.matchReason,
+      ...(summary.nextAppointmentAt === undefined ? {} : { nextAppointmentAt: summary.nextAppointmentAt }),
+      ...(summary.nextBarberName === undefined ? {} : { nextBarberName: summary.nextBarberName }),
+      ...(summary.nextServiceName === undefined ? {} : { nextServiceName: summary.nextServiceName }),
+      ...(summary.waitlistRequestSummary === undefined ? {} : { waitlistRequestSummary: summary.waitlistRequestSummary }),
+      ...(summary.lastVisitAt === undefined ? {} : { lastVisitAt: summary.lastVisitAt }),
+      ...(summary.usualServiceName === undefined ? {} : { usualServiceName: summary.usualServiceName }),
+      ...(summary.usualBarberName === undefined ? {} : { usualBarberName: summary.usualBarberName }),
+    },
     appointments: [
-      {
-        id: `${id}-future`,
-        customerId: id,
-        customerName: sarah ? "Sarah" : "Alex",
-        barberId: "jeremy",
-        barberName: "Jeremy",
-        serviceId: "haircut",
-        serviceName: "Signature haircut",
-        startAt: "2026-07-20T22:00:00.000Z",
-        endAt: "2026-07-20T23:00:00.000Z",
-        status: "confirmed",
-        discountPercent: 0,
-        version: 1,
-        history: [],
-      },
+      ...upcoming,
       {
         id: `${id}-past`,
         customerId: id,
-        customerName: sarah ? "Sarah" : "Alex",
+        customerName: summary.name,
         barberId: "maya",
         barberName: "Maya",
         serviceId: "haircut",
@@ -89,7 +155,7 @@ function customer(id: string): CustomerDetail {
         history: [],
       },
     ],
-    waitlist: sarah ? [] : [{
+    waitlist: id === "alex" ? [{
       id: "waitlist-alex",
       customerId: "alex",
       customerName: "Alex",
@@ -104,7 +170,7 @@ function customer(id: string): CustomerDetail {
       channel: "telegram",
       outreachState: "not_contacted",
       createdAt: "2026-07-18T16:00:00.000Z",
-    }],
+    }] : [],
     notes: [{
       id: `${id}-note`,
       text: sarah ? "Prefers a quick phone call." : "Usually free after work.",
@@ -151,11 +217,34 @@ function api(): ReviveApi {
 afterEach(cleanup);
 
 describe("CustomersPage", () => {
+  it("explains the AI booking pool and filters customers by actionable state", async () => {
+    const user = userEvent.setup();
+    render(<CustomersPage api={api()} refreshKey={0} />);
+
+    expect(await screen.findByRole("heading", { name: "Customer intelligence" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /All customers 4/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Booked 1/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Waitlisted 1/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ready to contact 1/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Ready to contact 1/ }));
+    expect(screen.getByRole("button", { name: /Olivia/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sarah/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Olivia/ }));
+    const record = await screen.findByRole("region", { name: "Olivia customer record" });
+    expect(within(record).getByText("Ready to contact")).toBeInTheDocument();
+    expect(within(record).getByText("Booking context")).toBeInTheDocument();
+    expect(within(record).getByText("4 visits")).toBeInTheDocument();
+    expect(within(record).getByText("Signature haircut · Maya")).toBeInTheDocument();
+    expect(within(record).getByText("Last Jun 22, 2026")).toBeInTheDocument();
+  });
+
   it("searches customers and shows one masked operational record", async () => {
     const user = userEvent.setup();
     render(<CustomersPage api={api()} refreshKey={0} />);
 
-    expect(await screen.findByRole("heading", { name: "Customers" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Customer intelligence" })).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /Sarah/ }));
     const record = await screen.findByRole("region", { name: "Sarah customer record" });
 

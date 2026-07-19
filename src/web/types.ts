@@ -105,14 +105,29 @@ export interface AvailabilityResponse {
   slots: AvailabilitySlot[];
 }
 
-export interface CustomerSummary {
+export type CustomerBookingState = "booked" | "waitlisted" | "outreach_ready" | "not_eligible";
+
+export interface CustomerRelationship {
+  bookingState: CustomerBookingState;
+  bookingStateLabel: string;
+  activeWaitlistCount: number;
+  visitCount: number;
+  outreachEligible: boolean;
+  matchReason: string;
+  nextAppointmentAt?: string;
+  nextBarberName?: string;
+  nextServiceName?: string;
+  waitlistRequestSummary?: string;
+  lastVisitAt?: string;
+  usualServiceName?: string;
+  usualBarberName?: string;
+}
+
+export interface CustomerSummary extends CustomerRelationship {
   id: string;
   name: string;
   contactPreference: "telegram" | "voice";
   identitySummary: string;
-  activeWaitlistCount: number;
-  nextAppointmentAt?: string;
-  nextBarberName?: string;
 }
 
 export interface OperatorWaitlistEntry {
@@ -151,6 +166,7 @@ export interface CustomerDetail {
     flexibleBarberPreference: boolean;
     pastCustomerOptIn: boolean;
   };
+  relationship: CustomerRelationship;
   appointments: CalendarAppointment[];
   waitlist: OperatorWaitlistEntry[];
   notes: CustomerNote[];

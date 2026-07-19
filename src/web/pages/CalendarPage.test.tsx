@@ -169,6 +169,12 @@ function api(): ReviveApi {
       contactPreference: "telegram" as const,
       identitySummary: "Telegram linked",
       activeWaitlistCount: 1,
+      bookingState: "waitlisted" as const,
+      bookingStateLabel: "Waitlisted",
+      visitCount: 3,
+      outreachEligible: false,
+      matchReason: "Actively waiting for Signature haircut in a preferred time window.",
+      waitlistRequestSummary: "Signature haircut · Jeremy · Mon, Jul 20, 5:00 PM–7:00 PM",
     }]),
     getCustomer: vi.fn(async () => { throw new Error("unused"); }),
     patchCustomer: vi.fn(async () => { throw new Error("unused"); }),
@@ -207,6 +213,25 @@ function Harness({ client = api() }: { client?: ReviveApi }) {
 afterEach(cleanup);
 
 describe("CalendarPage", () => {
+  it("keeps the barber filter quiet while calendar data refreshes", () => {
+    render(
+      <CalendarPage
+        anchorDate="2026-07-20"
+        api={api()}
+        barberFilter="all"
+        calendar={calendar()}
+        loading
+        onAnchorDateChange={vi.fn()}
+        onBarberFilterChange={vi.fn()}
+        onMutated={vi.fn(async () => undefined)}
+        onViewChange={vi.fn()}
+        view="day"
+      />,
+    );
+
+    expect(screen.queryByText("Syncing")).not.toBeInTheDocument();
+  });
+
   it("renders the clean day grid, filters barbers, and hides cancelled cards", async () => {
     const user = userEvent.setup();
     render(<Harness />);

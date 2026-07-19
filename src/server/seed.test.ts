@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 
 import { rankRefillCandidates } from "../domain/scheduling.js";
+import { projectCustomerList } from "./operator-projections.js";
 import { createDemoState, getDemoDate } from "./seed.js";
 
 describe("demo seed", () => {
@@ -53,6 +54,40 @@ describe("demo seed", () => {
     expect(state.customers.find((customer) => customer.id === "josh")?.telegramChatId).toBe("1001");
     expect(state.customers.find((customer) => customer.id === "alex")?.telegramChatId).toBe("2002");
     expect(state.customers.find((customer) => customer.id === "sarah")?.phone).toBe("+14165550101");
+  });
+
+  it("seeds a larger recurring-customer pool than the currently booked population", () => {
+    const state = createDemoState({
+      now: "2026-07-18T16:00:00.000Z",
+      timezone: "America/Toronto",
+    });
+    const summaries = projectCustomerList(state);
+    const booked = summaries.filter((customer) => customer.bookingState === "booked");
+    const waitlisted = summaries.filter((customer) => customer.bookingState === "waitlisted");
+    const outreachReady = summaries.filter((customer) => customer.bookingState === "outreach_ready");
+    const notEligible = summaries.filter((customer) => customer.bookingState === "not_eligible");
+    const recurring = summaries.filter((customer) => customer.visitCount >= 3);
+    const demoWeekEnd = DateTime.fromISO("2026-07-20", { zone: state.settings.timezone }).plus({ days: 5 });
+    const demoWeekMinutes = state.appointments
+      .filter((appointment) => {
+        const start = DateTime.fromISO(appointment.startAt).setZone(state.settings.timezone);
+        return appointment.status === "confirmed"
+          && start >= DateTime.fromISO("2026-07-20", { zone: state.settings.timezone })
+          && start < demoWeekEnd;
+      })
+      .reduce((minutes, appointment) => (
+        minutes + DateTime.fromISO(appointment.endAt).diff(DateTime.fromISO(appointment.startAt), "minutes").minutes
+      ), 0);
+    const capacityMinutes = 3 * 5 * 10 * 60;
+
+    expect(state.customers.length).toBeGreaterThan(booked.length);
+    expect(state.customers.length).toBeGreaterThanOrEqual(50);
+    expect(waitlisted.length).toBeGreaterThanOrEqual(3);
+    expect(outreachReady.length).toBeGreaterThanOrEqual(8);
+    expect(notEligible.length).toBeGreaterThanOrEqual(3);
+    expect(recurring.length).toBeGreaterThanOrEqual(20);
+    expect(demoWeekMinutes / capacityMinutes).toBeGreaterThanOrEqual(0.70);
+    expect(demoWeekMinutes / capacityMinutes).toBeLessThanOrEqual(0.80);
   });
 
   it("creates a realistic collision-free operational week without fake provider activity", () => {
